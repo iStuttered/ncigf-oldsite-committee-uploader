@@ -1,0 +1,4 @@
+atlassian_python_api==1.12.1
+requests==2.9.1
+urllib3==1.13.1
+python_dateutil==2.8.0
