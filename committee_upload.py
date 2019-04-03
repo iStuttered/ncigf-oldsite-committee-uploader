@@ -4,11 +4,42 @@ from os import listdir
 from os.path import isfile, join, isdir, exists
 from datetime import datetime
 
-urllib3.disable_warnings()
-log = logging.getLogger('atlassian')
-log.setLevel(logging.CRITICAL)
-
 api = credentials.generateSession()
+logger = debugging.generateLogger()
+
+def isAgenda(file_name) -> bool:
+    return "agenda" in file_name.lower()
+
+def isMinutes(file_name:str) -> bool:
+    return "minutes" in file_name.lower()
+
+def getAgendasFromFolder(folder_path:str) -> list:
+
+    folder_name = folder_path.split("/")[-1]
+
+    if not os.path.exists(folder_path):
+        logger.critical("No folder exists with the name " + folder_name)
+        return None
+    if not os.path.isdir(folder_path):
+        logger.critical(folder_name + " is not a directory.")
+        return None
+    
+    return [file for file in os.listdir(folder_path) if isAgenda(file)]
+
+def getMinutesFromFolder(folder_path:str) -> list:
+
+    folder_name = folder_path.split("/")[-1]
+
+    if not os.path.exists(folder_path):
+        logger.critical("No folder exists with the name " + folder_name)
+        return None
+    if not os.path.isdir(folder_path):
+        logger.critical(folder_name + " is not a directory.")
+        return None
+    
+    return [file for file in os.listdir(folder_path) if isMinutes(file)]
+        
+    
 
 def getAgenda(lines_of_file:str) -> dict:
     """
@@ -478,8 +509,8 @@ def getMatches():
                 for match in matches:
                     current_match_name = match.split("/")[-1]
                     print(current_match_name)
-                pause()
-                clear()
+                debugging.pause()
+                debugging.clear()
 
 def main_minutes():
     
