@@ -342,7 +342,7 @@ def buildMinute(
     committeeMinutesAttending:list, 
     committeeMinutesNotAttending:list, 
     committeeMinutesOtherAttending:list,
-    cAgenda:list,
+    committeeAgenda_:list,
     committeeTopics:list,
     committeeMinutesStatus:str = "Approved") -> str:
 
@@ -354,7 +354,7 @@ def buildMinute(
     beginning = "<ac:structured-macro ac:name=\"content-layer\" ac:schema-version=\"1\" ac:macro-id=\"9dec53ff-ddd1-4959-824f-4f1ae61c797a\"><ac:parameter ac:name=\"id\">1856481233</ac:parameter><ac:rich-text-body><ac:structured-macro ac:name=\"content-column\" ac:schema-version=\"1\" ac:macro-id=\"2c808257-9edf-40b1-a12d-466b68e25950\"><ac:parameter ac:name=\"id\">1856481236</ac:parameter><ac:rich-text-body>"
         
     content = str(committeeStatus(committeeName, committeeMinutesDate, committeeMinutesStatus))
-    content += str(committeeAgenda(cAgenda))
+    content += str(committeeAgenda(committeeAgenda_))
     content += str(committeeAttending(committeeMinutesAttending, committeeMinutesNotAttending, committeeMinutesOtherAttending))
     content += str(committeeMinutes(committeeTopics))
 
@@ -459,7 +459,13 @@ def getPageIDFromCommitteeName(committee:str, committee_parent_page_id:int = 127
     else:
         return []
 
-def getCommitteesFromFileSystem(parentDirectory:str = "/home/njennings/minutes_pdfs") -> list:
+def strMatchesRegex(string:str, regex_pattern:str) -> bool:
+    pattern = re.compile(regex_pattern)
+
+    
+
+
+def getCommitteesFromFileSystem() -> list:
     """
     Get a list of committee folder paths within the given parentDirectory.
 
@@ -469,10 +475,13 @@ def getCommitteesFromFileSystem(parentDirectory:str = "/home/njennings/minutes_p
     Returns:
         list: A list of absolute folder paths for each committee.
     """
+
+    parent_directory = credentials.getCommitteesDirectory()
+
     return [
-        "/".join([parentDirectory, folder]) 
-        for folder in os.listdir(parentDirectory) 
-        if os.path.isdir("/".join([parentDirectory, folder]))
+        "/".join([parent_directory, folder]) 
+        for folder in os.listdir(parent_directory) 
+        if os.path.isdir("/".join([parent_directory, folder]))
     ]
 
 def getFilesFromCommittee(committee:str) -> list:
@@ -487,17 +496,25 @@ def getFilesFromCommittee(committee:str) -> list:
     """
     return ["/".join([committee, committeeFile]) for committeeFile in os.listdir(committee)]
 
-def getMatches():
+def getMatch(agenda_file, minutes_list) -> str:
+
+
+def mergeMatches():
     """
     The test method for pairing a minutes file with an agenda file for
     eventually merging into a single page on Confluence.
     """
     committees = getCommitteesFromFileSystem()
+
     for committee in committees:
-        files = getFilesFromCommittee(committee)
+
+        minutes = getMinutesFromFolder(committee)
+        agendas = getAgendasFromFolder(committee)
+
         for f in files:
+
             current_file_name = f.split("/")[-1]
-            matches = matchTwoDates(f)
+            matches = []
 
             if len(matches) != 1:
                 continue
