@@ -533,21 +533,14 @@ def mergeMatches():
             
             matches = getFilesWithSimilarDate(file, agendas)
 
-            if len(matches) == 0:
+            if len(matches) <= 0:
                 logger.warning("No matches for file " + current_file_name)
                 continue
             elif len(matches) > 1:
                 logger.warning("More than one match for file " + current_file_name)
                 continue
 
-            print("=============================================")
-            print("CURRENT COMMITTEE: " + committee_name + " # Files: " + str(len(minutes)))
-            print("CURRENT FILE: " + current_file_name)
-            print("===================Matches===================")
-            for match in matches:
-                current_match_name = match.split("/")[-1]
-                print(current_match_name)
-            debugging.pause()
-            debugging.clear()
+            only_match = matches[0]
+            logger.info("Matching " + current_file_name + " to " + only_match)
 
 mergeMatches()
