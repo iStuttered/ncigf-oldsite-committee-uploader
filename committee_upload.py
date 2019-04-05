@@ -472,6 +472,13 @@ def getDateFromFile(file_name:str) -> list:
         first_occurrence = results.group(0)
         return re.split(r"-|\/|_", first_occurrence)
 
+def padYear(year:str):
+    if len(year) == 2 and year[0] == "0":
+        return "20" + year
+    else:
+        return year
+
+
 def getFilesWithSimilarDate(file_name:str, agendas_list:list) -> list:
 
     minute_date = getDateFromFile(file_name)
@@ -482,7 +489,7 @@ def getFilesWithSimilarDate(file_name:str, agendas_list:list) -> list:
 
     minute_month = minute_date[0]
     minute_day = minute_date[1]
-    minute_year = minute_date[2]
+    minute_year = padYear(minute_date[2])
 
     matches = []
 
@@ -495,7 +502,7 @@ def getFilesWithSimilarDate(file_name:str, agendas_list:list) -> list:
 
         agenda_month = agenda_date[0]
         agenda_day = agenda_date[1]
-        agenda_year = agenda_date[2]
+        agenda_year = padYear(agenda_date[2])
 
         if (minute_month == agenda_month 
         and minute_day  == agenda_day
