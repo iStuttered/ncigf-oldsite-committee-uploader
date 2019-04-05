@@ -445,9 +445,9 @@ def getCommitteesFromFileSystem() -> list:
     parent_directory = credentials.getCommitteesDirectory()
 
     return [
-        "/".join([parent_directory, folder]) 
+        "\\".join([parent_directory, folder]) 
         for folder in os.listdir(parent_directory) 
-        if os.path.isdir("/".join([parent_directory, folder]))
+        if os.path.isdir("\\".join([parent_directory, folder]))
     ]
 
 def getFilesFromCommittee(committee:str) -> list:
@@ -462,6 +462,51 @@ def getFilesFromCommittee(committee:str) -> list:
     """
     return ["/".join([committee, committeeFile]) for committeeFile in os.listdir(committee)]
 
+def getDateFromFile(file_name:str) -> list:
+    results = re.search(r"\d{1,2}(\/|-|_)\d{1,2}(\/|-|_)(\d{4}|\d{2})", file_name)
+
+    if results == None:
+        return []
+
+    if len(results.groups()) > 0:
+        first_occurrence = results.group(0)
+        return re.split(r"-|\/|_", first_occurrence)
+
+def getFilesWithSimilarDate(file_name:str, agendas_list:list) -> list:
+
+    minute_date = getDateFromFile(file_name)
+
+    if len(minute_date) < 1:
+        logger.warning(file_name + " has no date.")
+        return []
+
+    minute_month = minute_date[0]
+    minute_day = minute_date[1]
+    minute_year = minute_date[2]
+
+    matches = []
+
+    for agenda in agendas_list:
+
+        agenda_date = getDateFromFile(agenda)
+
+        if len(agenda_date) < 1:
+            continue
+
+        agenda_month = agenda_date[0]
+        agenda_day = agenda_date[1]
+        agenda_year = agenda_date[2]
+
+        if (minute_month == agenda_month 
+        and minute_day  == agenda_day
+        and minute_year == agenda_year):
+            matches.append(agenda)
+
+    return matches
+
+
+
+
 def mergeMatches():
     """
     The test method for pairing a minutes file with an agenda file for
@@ -471,23 +516,34 @@ def mergeMatches():
 
     for committee in committees:
 
+        committee_pieces = committee.split("\\")
+    
+        if len(committee_pieces) < 1:
+            logger.critical("No committee name collected from " + committee)
+            continue 
+
+        committee_name = committee_pieces[-1]
+
         minutes = getMinutesFromFolder(committee)
         agendas = getAgendasFromFolder(committee)
 
         for file in minutes:
 
             current_file_name = file.split("/")[-1]
-            matches = []
+            
+            matches = getFilesWithSimilarDate(file, agendas)
 
             if len(matches) != 1:
                 continue
             else:
-                print("=======================================")
-                print("CURRENT COMMITTEE: " + committee + " # files: " + str(len(minutes)))
+                print("=============================================")
+                print("CURRENT COMMITTEE: " + committee_name + " # files: " + str(len(minutes)))
                 print("CURRENT FILE: " + current_file_name)
-                print("=======================================")
+                print("===================Matches===================")
                 for match in matches:
                     current_match_name = match.split("/")[-1]
                     print(current_match_name)
                 debugging.pause()
                 debugging.clear()
+
+mergeMatches()
