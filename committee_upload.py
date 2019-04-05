@@ -208,7 +208,7 @@ def getAttendees(lines_in_file:str) -> dict:
     }
 
 
-def committeeMinutes(topics:list) -> str:
+def buildCommitteeMinutes(topics:list) -> str:
     """
     Get the page block for committee minutes belonging to a minutes page.
     
@@ -239,7 +239,7 @@ def committeeMinutes(topics:list) -> str:
 
     return beginning + table + end
 
-def committeeAttending(attending:list, notattending:list, otherattending:list) -> str:
+def buildCommitteeAttending(attending:list, notattending:list, otherattending:list) -> str:
     """
     Get the attending members block for a committee minutes page.
     
@@ -279,7 +279,7 @@ def committeeAttending(attending:list, notattending:list, otherattending:list) -
 
     return beginning + table + closing
 
-def committeeAgenda(agenda:list) -> str:
+def buildCommitteeAgenda(agenda:list) -> str:
     """
     Get the committee agenda page block from a committee page.
     
@@ -308,7 +308,7 @@ def committeeAgenda(agenda:list) -> str:
 
     return beginning + table + closing
 
-def committeeStatus(committeeName:str, minutesDate:str, committeeStatus:str) -> str:
+def buildCommitteeStatus(committeeName:str, minutesDate:str, committeeStatus:str) -> str:
     """
     Get the status of a paticular committee.
     
@@ -342,7 +342,7 @@ def buildMinute(
     committeeMinutesAttending:list, 
     committeeMinutesNotAttending:list, 
     committeeMinutesOtherAttending:list,
-    committeeAgenda_:list,
+    committeeAgenda:list,
     committeeTopics:list,
     committeeMinutesStatus:str = "Approved") -> str:
 
@@ -353,37 +353,14 @@ def buildMinute(
     
     beginning = "<ac:structured-macro ac:name=\"content-layer\" ac:schema-version=\"1\" ac:macro-id=\"9dec53ff-ddd1-4959-824f-4f1ae61c797a\"><ac:parameter ac:name=\"id\">1856481233</ac:parameter><ac:rich-text-body><ac:structured-macro ac:name=\"content-column\" ac:schema-version=\"1\" ac:macro-id=\"2c808257-9edf-40b1-a12d-466b68e25950\"><ac:parameter ac:name=\"id\">1856481236</ac:parameter><ac:rich-text-body>"
         
-    content = str(committeeStatus(committeeName, committeeMinutesDate, committeeMinutesStatus))
-    content += str(committeeAgenda(committeeAgenda_))
-    content += str(committeeAttending(committeeMinutesAttending, committeeMinutesNotAttending, committeeMinutesOtherAttending))
-    content += str(committeeMinutes(committeeTopics))
+    content = str(buildCommitteeStatus(committeeName, committeeMinutesDate, committeeMinutesStatus))
+    content += str(buildCommitteeAgenda(committeeAgenda))
+    content += str(buildCommitteeAttending(committeeMinutesAttending, committeeMinutesNotAttending, committeeMinutesOtherAttending))
+    content += str(buildCommitteeMinutes(committeeTopics))
 
     closing = "</ac:rich-text-body></ac:structured-macro></ac:rich-text-body></ac:structured-macro>"
     
     return beginning + content + closing
-
-def uploadMinutes(folder:str = "/home/njennings/minutes_pdfs"):
-
-    attendees = getAttendees()
-    agenda = getAgenda()
-    
-    presenters = []
-
-    for presenterIndex in range(len(attendees["Topics"])):
-        presenters.append({
-            "Topic": agenda["Agenda"][presenterIndex],
-            "Presenter": agenda["Presenters"][presenterIndex]
-        })
-
-
-    minutes_page = buildMinute(
-        agenda["Committee Name"], 
-        agenda["Minutes Date"], 
-        attendees["Members Attending"], 
-        attendees["Members NOT Attending"], 
-        attendees["Others Attending"], 
-        presenters,
-        attendees["Topics"])
 
 def padMonthOrDay(dateValue:int) -> str:
     """
@@ -432,14 +409,9 @@ def uploadCommitteeMinute(committeeMinutesAgendaFilePath:str, committeeMinutesTo
             attendees["Topics"])
 
 
-    title = "Committees - " + agenda["Committee Name"] + " - Minutes - " + agenda["Minutes Date"]
+    title = agenda["Committee Name"] + " - Minutes - " + agenda["Minutes Date"]
 
     payload = parsed_minute.replace("\\r\\n", "").replace("&", "and")
-
-    payload = ''.join(filter(lambda c: c in printable, payload))
-
-    with open("C:\\Users\\njennings\\Atom\\minutes_tests\\minutes_test.json", "w") as file:
-        file.write(payload)
 
     api.create_page(committeeSpaceID, title, payload, str(commmitteeMinutesParentPageID))
 
@@ -458,12 +430,6 @@ def getPageIDFromCommitteeName(committee:str, committee_parent_page_id:int = 127
             return []
     else:
         return []
-
-def strMatchesRegex(string:str, regex_pattern:str) -> bool:
-    pattern = re.compile(regex_pattern)
-
-    
-
 
 def getCommitteesFromFileSystem() -> list:
     """
@@ -496,9 +462,6 @@ def getFilesFromCommittee(committee:str) -> list:
     """
     return ["/".join([committee, committeeFile]) for committeeFile in os.listdir(committee)]
 
-def getMatch(agenda_file, minutes_list) -> str:
-
-
 def mergeMatches():
     """
     The test method for pairing a minutes file with an agenda file for
@@ -511,16 +474,16 @@ def mergeMatches():
         minutes = getMinutesFromFolder(committee)
         agendas = getAgendasFromFolder(committee)
 
-        for f in files:
+        for file in minutes:
 
-            current_file_name = f.split("/")[-1]
+            current_file_name = file.split("/")[-1]
             matches = []
 
             if len(matches) != 1:
                 continue
             else:
                 print("=======================================")
-                print("CURRENT COMMITTEE: " + committee + " # files: " + str(len(files)))
+                print("CURRENT COMMITTEE: " + committee + " # files: " + str(len(minutes)))
                 print("CURRENT FILE: " + current_file_name)
                 print("=======================================")
                 for match in matches:
@@ -528,15 +491,3 @@ def mergeMatches():
                     print(current_match_name)
                 debugging.pause()
                 debugging.clear()
-
-def main_minutes():
-    
-    
-
-
-
-    uploadCommitteeMinute(
-        "C:\\Users\\njennings\\Atom\\minutes_tests\\m1.txt",
-        "C:\\Users\\njennings\\Atom\\minutes_tests\\o1.txt",
-        str(8257827)
-    )
