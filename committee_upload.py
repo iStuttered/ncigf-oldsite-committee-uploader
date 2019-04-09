@@ -226,6 +226,26 @@ def getAttendees(lines_in_file:list) -> dict:
                 topic["Description"] += line.replace("\n", " ")
         lastLine = line.strip()
     
+    attending_failure = committeeMembersAttending == None or len(committeeMembersAttending) < 1
+    not_attending_failure = committeeMembersNotAttending == None
+    others_attending_failure = othersAttending == None
+    topics_failure = committeeTopics == None or len(committeeTopics) < 1
+
+    if attending_failure:
+        logger.warning("Members attending not retrieved.")
+    
+    if not_attending_failure:
+        logger.warning("Members NOT attending not retrieved.")
+
+    if others_attending_failure:
+        logger.warning("Others attending not retrieved.")
+
+    if topics_failure:
+        logger.warning("Topics not retrieved.")
+
+    if attending_failure or not_attending_failure or others_attending_failure or topics_failure:
+        return None
+
     return {
         "Members Attending": committeeMembersAttending,
         "Members NOT Attending": committeeMembersNotAttending,
