@@ -430,13 +430,16 @@ def getPageIDFromCommitteeName(committee_name:str, committee_parent_page_id:int 
         committee_ids = [committee["id"] for committee in committees if committee_name.lower() in committee["title"].lower()]
 
         if len(committee_ids) < 1:
-            logger.warning("No committees exist with that name on Confluence.")
+            logger.warning("No committees exist with that name on Confluence. " + committee_name)
+            return []
         elif len(committee_ids) > 1:
-            logger.warning("More than one committe with that name on Confluence.")
-
-        return committee_ids[0]
+            logger.warning("More than one committe with that name on Confluence." + committee_name)
+            return committee_ids
+        else:
+            return committee_ids[0]
     else:
         return []
+    return []
 
 def getCommitteesFromFileSystem() -> list:
     """
