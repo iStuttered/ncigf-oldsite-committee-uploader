@@ -41,7 +41,7 @@ def getMinutesFromFolder(folder_path:str) -> list:
         
     
 
-def getAgenda(lines_of_file:str) -> dict:
+def getAgenda(lines_of_file:list) -> dict:
     """
     Read the lines of a file and get the information about the agenda.
 
@@ -127,7 +127,7 @@ def getAgenda(lines_of_file:str) -> dict:
         "Committee Name": committee_name
     }
 
-def getAttendees(lines_in_file:str) -> dict:
+def getAttendees(lines_in_file:list) -> dict:
     """
     Read the lines of a file to retrieve the attendees information in
     dictionary form below:
@@ -377,7 +377,21 @@ def padMonthOrDay(dateValue:int) -> str:
     else:
         return str(dateValue)
 
-def uploadCommitteeMinute(committeeMinutesAgendaFilePath:str, committeeMinutesTopicsFilePath:str, commmitteeMinutesParentPageID:str, committeeSpaceID:str = "COMM"):
+def getMinutesConfluencePage(committeeMinutesParentPageID:str) -> str:
+    child_pages = api.get_child_pages(committeeMinutesParentPageID)
+
+    if len(child_pages) < 1:
+        logger.warning("This committee contains no child pages. " + committeeMinutesParentPageID)
+        return None
+
+    for page in child_pages:
+        if "minutes" in page["title"].lower():
+            return page["id"]
+
+    logger.warning("This committee contains no Minutes page. " + committeeMinutesParentPageID)
+    return None
+
+def uploadCommitteeMinute(committeeMinutesAgendaFilePath:str, committeeMinutesTopicsFilePath:str, commmitteeMinutesParentPageID:str, committee_name:str, committeeSpaceID:str = "COMM"):
     """
     Build a ConfluencePage using parameters and upload that page to the correct
     space and page.
@@ -388,8 +402,22 @@ def uploadCommitteeMinute(committeeMinutesAgendaFilePath:str, committeeMinutesTo
         committeeSpaceID (str, optional): Defaults to "COMM". The committees spaceID.
     """
 
-    attendees = getAttendees(committeeMinutesTopicsFilePath)
-    agenda = getAgenda(committeeMinutesAgendaFilePath)
+    committee_base_url = credentials.getCommitteesDirectory()
+
+    attendees_file_path = "\\".join([committee_base_url, committee_name, committeeMinutesAgendaFilePath])
+    minutes_file_path = "\\".join([committee_base_url, committee_name, committeeMinutesTopicsFilePath])
+    
+    attendees_lines = None
+    agenda_lines = None
+
+    with(open(attendees_file_path, "r")) as attendees_file:
+        attendees_lines = [line for line in attendees_file]
+
+    with(open(minutes_file_path, "r")) as minutes_file:
+        agenda_lines = [line for line in minutes_file]
+    
+    attendees = getAttendees(attendees_lines)
+    agenda = getAgenda(agenda_lines)
 
     presenters = []
 
@@ -400,7 +428,7 @@ def uploadCommitteeMinute(committeeMinutesAgendaFilePath:str, committeeMinutesTo
         })
 
     parsed_minute = buildMinute(
-            agenda["Committee Name"], 
+            committee_name, 
             agenda["Minutes Date"], 
             attendees["Members Attending"], 
             attendees["Members NOT Attending"], 
@@ -409,11 +437,13 @@ def uploadCommitteeMinute(committeeMinutesAgendaFilePath:str, committeeMinutesTo
             attendees["Topics"])
 
 
-    title = agenda["Committee Name"] + " - Minutes - " + agenda["Minutes Date"]
+    title = committee_name + " - Minutes - " + agenda["Minutes Date"]
 
     payload = parsed_minute.replace("\\r\\n", "").replace("&", "and")
 
-    result = api.create_page(committeeSpaceID, title, payload, str(commmitteeMinutesParentPageID))
+    minutes_child_page = getMinutesConfluencePage(commmitteeMinutesParentPageID)
+
+    result = api.create_page(committeeSpaceID, title, payload, str(minutes_child_page))
     print(result)
     debugging.pause()
     
@@ -563,6 +593,6 @@ def mergeMatches():
 
             committee_id = getPageIDFromCommitteeName(committee_name)
 
-            uploadCommitteeMinute(only_match, file, committee_id)
+            uploadCommitteeMinute(only_match, file, committee_id, committee_name)
 
 mergeMatches()
