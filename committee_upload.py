@@ -413,21 +413,28 @@ def uploadCommitteeMinute(committeeMinutesAgendaFilePath:str, committeeMinutesTo
 
     payload = parsed_minute.replace("\\r\\n", "").replace("&", "and")
 
-    api.create_page(committeeSpaceID, title, payload, str(commmitteeMinutesParentPageID))
+    result = api.create_page(committeeSpaceID, title, payload, str(commmitteeMinutesParentPageID))
+    print(result)
+    debugging.pause()
+    
 
-def getPageIDFromCommitteeName(committee:str, committee_parent_page_id:int = 1278261):
+
+def getPageIDFromCommitteeName(committee_name:str, committee_parent_page_id:int = 1278261):
     committees = api.request(
         method="GET",
         path="rest/api/content/" + str(committee_parent_page_id) + "/child/page"
     )
 
     if committees.status_code == 200:
-        committee = committees.json()["results"]
+        committees = committees.json()["results"]
+        committee_ids = [committee["id"] for committee in committees if committee_name.lower() in committee["title"].lower()]
 
-        if committees and len(committees) > 0:
-            return (committees["id"] for committee in committees if committee.lower() in committee["title"].lower())
-        else:
-            return []
+        if len(committee_ids) < 1:
+            logger.warning("No committees exist with that name on Confluence.")
+        elif len(committee_ids) > 1:
+            logger.warning("More than one committe with that name on Confluence.")
+
+        return committee_ids[0]
     else:
         return []
 
@@ -548,6 +555,11 @@ def mergeMatches():
                 continue
 
             only_match = matches[0]
+
             logger.info("Matching " + current_file_name + " to " + only_match)
+
+            committee_id = getPageIDFromCommitteeName(committee_name)
+
+            uploadCommitteeMinute(only_match, file, committee_id)
 
 mergeMatches()
