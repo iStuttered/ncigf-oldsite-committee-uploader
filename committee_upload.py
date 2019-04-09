@@ -58,16 +58,16 @@ def getAgenda(lines_of_file:list) -> dict:
     Returns:
         dict: A dictionary like above.
     """
-    agenda = []
-    presenters = []
-    minutesDate = ""
+    agenda = None
+    presenters = None
+    minutesDate = None
     agendaSection = False
     presenterSection = False
 
-    committee_name = ""
+    committee_name = None
     line_index = 0
 
-    lastTopic = ""
+    lastTopic = None
 
     for line in lines_of_file:
         if "Outcome".lower() in line.lower():
@@ -91,9 +91,14 @@ def getAgenda(lines_of_file:list) -> dict:
             print(committee_name)
         
 
-        if re.match(r"(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),\s(January|February|March|April|May|June|July|August|September|October|November|December)\s\d+,\s\d{4}", line):
+        if re.match(r"(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),\s(January|February|March|April|May|June|July|August|September|October|November|December)\s\d+,\s\d{4}", line) and line_index < 5:
             date_formatted = line.split("at")[0].strip()
             date_formatted = datetime.strptime(date_formatted, "%A, %B %d, %Y").date()
+            date_formatted = date_formatted.strftime("%m/%d/%y")
+            minutesDate = date_formatted
+        elif re.match(r"(January|February|March|April|May|June|July|August|September|October|November|December)\s(\d|\d\d),\s(\d\d\d\d|\d\d)\sat\s(\d|\d\d):\d\d\s(a|p)\.m\.", line) and line_index < 5:
+            date_formatted = line.split("at")[0].strip()
+            date_formatted = datetime.strptime(date_formatted, "%B %d, %Y")
             date_formatted = date_formatted.strftime("%m/%d/%y")
             minutesDate = date_formatted
 
@@ -119,6 +124,27 @@ def getAgenda(lines_of_file:list) -> dict:
             cleanedTopic = re.sub(r"(\d|\d\d)\.\s", "", cleanedTopic).strip()
             cleanedTopic = re.sub(r"[D|I|V]*\/*[D|I|V]*\/*[D|I|V]", "", cleanedTopic)
             agenda.append(cleanedTopic.strip())
+
+    minutes_failure = minutesDate == None or len(minutesDate) < 1
+    presenters_failure = presenters == None or len(presenters) < 1
+    agenda_failure = agenda == None or len(agenda) < 1
+    committee_name_failure = committee_name == None or len(committee_name) < 1
+
+
+    if minutes_failure:
+        logger.warning("No date was retrieved for this file.")
+
+    if presenters_failure:
+        logger.warning("No presenters were retrieved for this file.")
+
+    if agenda_failure:
+        logger.warning("No agenda was retrieved for this file.")
+    
+    if committee_name_failure:
+        logger.warning("No committee name present.")
+
+    if minutes_failure or presenters_failure or agenda_failure or committee_name_failure:
+        return None
 
     return {
         "Agenda": agenda,
