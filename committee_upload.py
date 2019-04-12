@@ -99,21 +99,12 @@ def getAgenda(lines_of_file:list) -> dict:
         if line_index == 1:
             committee_name = line.strip().replace("Meeting of the ", "")
         
-
-        if line_index < 5 and re.match(r"(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),\s(January|February|March|April|May|June|July|August|September|October|November|December)\s\d+,\s\d{4}", line):
-            date_formatted = line.split("at")[0].replace("EST", "")
-            date_formatted = date_formatted.replace(",", "")
-            date_formatted = re.sub(r"((\d|\d\d):\d\d\s(a|A|P|p)(\.{0,1})m(\.{0,1}))", "", date_formatted)
-            date_formatted = date_formatted.strip()
-            date_formatted = datetime.strptime(date_formatted, "%A %B %d %Y").date()
-            minutesDate = date_formatted.strftime("%m/%d/%y")
-        elif line_index < 5 and re.match(r"(January|February|March|April|May|June|July|August|September|October|November|December)\s(\d|\d\d),\s(\d\d\d\d|\d\d)\sat\s(\d|\d\d):\d\d\s(a|p)\.m\.", line):
-            date_formatted = line.split("at")[0]
-            date_formatted = date_formatted.replace(",", "")
-            date_formatted = re.sub(r"((\d|\d\d):\d\d\s(a|A|P|p)(\.{0,1})m(\.{0,1}))", "", date_formatted)
-            date_formatted = date_formatted.strip()
-            date_formatted = datetime.strptime(date_formatted, "%B %d %Y").date()
-            minutesDate = date_formatted.strftime("%m/%d/%y")
+        if line_index < 5:
+            search_for_date = re.search(r"(January|February|March|April|May|June|July|August|September|October|November|December)\s\d+,\s\d{4}", line)
+            if len(search_for_date.groups()) > 0:
+                matched_date_str = search_for_date.group(0)
+                matched_date = datetime.strptime(matched_date_str, "%B %d, %Y")
+                formatted_date = matched_date.strftime("%m/%d/%y")
 
 
         if presenterSection:
