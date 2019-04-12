@@ -184,19 +184,17 @@ def getAttendees(lines_in_file:list) -> dict:
     Returns:
         dict: A dictionary.
     """
-    attending = {
-        "committeeMembersAttending" : 0,
-        "committeeMembersNotAttending" : 1,
-        "othersAttending" : 2,
-        "committeeTopics" : 3
-    }
+
+    section_committeeMembersAttending = False
+    section_committeeMembersNotAttending = False
+    section_othersAttending = False
+    section_committeeTopics = False
 
     committeeMembersAttending = []
     committeeMembersNotAttending = []
     othersAttending = []
     committeeTopics = []
 
-    currentList = -1
     lastLine = ""
 
     topic = {
@@ -205,25 +203,47 @@ def getAttendees(lines_in_file:list) -> dict:
     }
 
     for line in lines_in_file:
-        if "Committee Member Attendees".lower() in line.lower():
-            currentList = attending["committeeMembersAttending"]
+
+        line_lower = line.lower().strip()
+        line_stripped = line.strip()
+
+        if "attendees" in line_lower:
+            section_committeeMembersAttending = True
+            section_committeeMembersNotAttending = False
+            section_othersAttending = False
+            section_committeeTopics = False
             continue
-        elif "Committee Members not Attending".lower() in line.lower():
-            currentList = attending["committeeMembersNotAttending"]
+        elif "committee members not attending" in line_lower and not(section_committeeTopics):
+            section_committeeMembersNotAttending = True
+            section_committeeMembersAttending = False
+            section_othersAttending = False
+            section_committeeTopics = False
             continue
-        elif "Other Attendees".lower() in line.lower():
-            currentList = attending["othersAttending"]
+        elif "other" in line_lower and not(section_committeeTopics):
+            section_othersAttending = True
+            section_committeeMembersAttending = False
+            section_committeeMembersNotAttending = False
+            section_committeeTopics = False
             continue
-        elif "Roll Call".lower() in line.lower():
-            currentList = attending["committeeTopics"]
+        elif "roll call" in line_lower:
+            section_committeeTopics = True
+            section_othersAttending = False
+            section_committeeMembersAttending = False
+            section_committeeMembersNotAttending = False
         
-        if currentList == attending["committeeMembersAttending"]:
-            committeeMembersAttending.append(line.strip())
-        elif currentList == attending["committeeMembersNotAttending"]:
-            committeeMembersNotAttending.append(line.strip())
-        elif currentList == attending["othersAttending"]:
-            othersAttending.append(line.strip())
-        elif currentList == attending["committeeTopics"]:
+        if section_committeeMembersAttending:
+
+            committeeMembersAttending.append(line_stripped)
+
+        elif section_committeeMembersNotAttending:
+
+            committeeMembersNotAttending.append(line_stripped)
+
+        elif section_othersAttending:
+
+            othersAttending.append(line_stripped)
+
+        elif section_committeeTopics:
             if len(lastLine) < 1:
 
                 topic["Description"] = topic["Description"].strip()
@@ -231,13 +251,13 @@ def getAttendees(lines_in_file:list) -> dict:
                 committeeTopics.append(topic)
 
                 topic = {
-                    "Topic": line.strip(),
+                    "Topic": line_stripped,
                     "Description": ""
                 }
 
             else:
                 topic["Description"] += line.replace("\n", " ")
-        lastLine = line.strip()
+        lastLine = line_stripped
     
     attending_failure = not(committeeMembersAttending) or len(committeeMembersAttending) < 1
     not_attending_failure = not(committeeMembersNotAttending)
