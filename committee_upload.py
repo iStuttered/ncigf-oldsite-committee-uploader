@@ -75,6 +75,7 @@ def getAgenda(lines_of_file:list) -> dict:
     for line in lines_of_file:
 
         lower = line.lower().strip()
+        line_stripped = line.strip()
 
         if "outcome" in lower:
             agendaSection = True
@@ -97,11 +98,11 @@ def getAgenda(lines_of_file:list) -> dict:
             continue
 
         if line_index == 1:
-            committee_name = line.strip().replace("Meeting of the ", "")
+            committee_name = line_stripped.replace("Meeting of the ", "")
         
         if line_index < 5:
             search_for_date = re.search(r"(January|February|March|April|May|June|July|August|September|October|November|December)\s\d+,\s\d{4}", line)
-            if not(search_for_date == None):
+            if search_for_date:
                 if len(search_for_date.groups()) > 0:
                     matched_date_str = search_for_date.group(0)
                     matched_date = datetime.strptime(matched_date_str, "%B %d, %Y")
@@ -109,31 +110,35 @@ def getAgenda(lines_of_file:list) -> dict:
 
 
         if presenterSection:
-            if len(line.strip()) > 0 and not(re.match(r"(D|I|V)[^(a-z)]", line)):
-                presenters.append(line.strip())
+            if len(line_stripped) > 0 and not(re.match(r"(D|I|V)[^(a-z)]", line)):
+                presenters.append(line_stripped)
                 
+        regex_starts_with_number = r"(\d\d|\d).\s.+"
+        regex_is_table_label = r"[D|I|V]*\/*[D|I|V]*\/*[D|I|V]"
+        
         if agendaSection:
-            if lastTopic == None and re.match(r"(\d\d|\d).\s.+", line.strip()):
+
+            if not(lastTopic) and re.match(regex_starts_with_number, line_stripped):
                 lastTopic = line.replace("\n", " ")
-            elif lastTopic != "" and not(re.match(r"(\d\d|\d).\s.+", line.strip())):
+            elif lastTopic != "" and not(re.match(regex_starts_with_number, line_stripped)):
                 lastTopic += line
-            elif lastTopic != "" and re.match(r"(\d\d|\d).\s.+", line.strip()):
+            elif lastTopic != "" and re.match(regex_starts_with_number, line_stripped):
                 cleanedTopic = lastTopic.replace("\n", " ")
-                cleanedTopic = re.sub(r"(\d|\d\d)\.\s", "", cleanedTopic).strip()
+                cleanedTopic = re.sub(regex_starts_with_number, "", cleanedTopic).strip()
                 agenda.append(cleanedTopic)
                 lastTopic = line
         line_index += 1
             
-        if lastTopic != None and re.match(r"(\d\d|\d).\s.+", lastTopic.strip()):
+        if lastTopic != None and re.match(regex_starts_with_number, lastTopic.strip()):
             cleanedTopic = lastTopic.replace("\n", " ")
-            cleanedTopic = re.sub(r"(\d|\d\d)\.\s", "", cleanedTopic).strip()
-            cleanedTopic = re.sub(r"[D|I|V]*\/*[D|I|V]*\/*[D|I|V]", "", cleanedTopic)
+            cleanedTopic = re.sub(regex_starts_with_number, "", cleanedTopic).strip()
+            cleanedTopic = re.sub(regex_is_table_label, "", cleanedTopic)
             agenda.append(cleanedTopic.strip())
 
-    minutes_failure = minutes_date == None or len(minutes_date) < 1
-    presenters_failure = presenters == None or len(presenters) < 1
-    agenda_failure = agenda == None or len(agenda) < 1
-    committee_name_failure = committee_name == None or len(committee_name) < 1
+    minutes_failure = not(minutes_date) or len(minutes_date) < 1
+    presenters_failure = not(presenters) or len(presenters) < 1
+    agenda_failure = not(agenda) or len(agenda) < 1
+    committee_name_failure = not(committee_name) or len(committee_name) < 1
 
 
     if minutes_failure:
@@ -231,10 +236,10 @@ def getAttendees(lines_in_file:list) -> dict:
                 topic["Description"] += line.replace("\n", " ")
         lastLine = line.strip()
     
-    attending_failure = committeeMembersAttending == None or len(committeeMembersAttending) < 1
-    not_attending_failure = committeeMembersNotAttending == None
-    others_attending_failure = othersAttending == None
-    topics_failure = committeeTopics == None or len(committeeTopics) < 1
+    attending_failure = not(committeeMembersAttending) or len(committeeMembersAttending) < 1
+    not_attending_failure = not(committeeMembersNotAttending)
+    others_attending_failure = not(othersAttending)
+    topics_failure = not(committeeTopics) or len(committeeTopics) < 1
 
     if attending_failure:
         logger.warning("Members attending not retrieved.")
@@ -471,7 +476,7 @@ def uploadCommitteeMinute(committeeMinutesAgendaFilePath:str, committeeMinutesTo
     attendees = getAttendees(attendees_lines)
     agenda = getAgenda(agenda_lines)
 
-    if attendees == None or agenda == None:
+    if not(attendees) or not(agenda):
         return
 
     presenters = []
@@ -559,7 +564,7 @@ def getFilesFromCommittee(committee:str) -> list:
 def getDateFromFile(file_name:str) -> list:
     results = re.search(r"\d{1,2}(\/|-|_)\d{1,2}(\/|-|_)(\d{4}|\d{2})", file_name)
 
-    if results == None:
+    if not(results):
         return []
 
     if len(results.groups()) > 0:
@@ -648,5 +653,7 @@ def mergeMatches():
             committee_id = getPageIDFromCommitteeName(committee_name)
 
             uploadCommitteeMinute(only_match, file, committee_id, committee_name)
+
+            debugging.pause()
 
 mergeMatches()
