@@ -100,21 +100,24 @@ def getAgenda(lines_of_file:list) -> dict:
         if line_index == 1:
             committee_name = line_stripped.replace("Meeting of the ", "")
         
+        regex_long_form_date = r"(January|February|March|April|May|June|July|August|September|October|November|December)\s\d+,\s\d{4}"
+        regex_starts_with_number = r"(\d\d|\d).\s.+"
+        regex_is_table_label = r"[D|I|V]*\/*[D|I|V]*\/*[D|I|V]"
+        confluence_preffered_date_format = "%m/%d/%y"
+        file_regex_date_format = "%B %d, %Y"
+
         if line_index < 5:
-            search_for_date = re.search(r"(January|February|March|April|May|June|July|August|September|October|November|December)\s\d+,\s\d{4}", line)
+            search_for_date = re.search(regex_long_form_date, line)
             if search_for_date:
                 if len(search_for_date.groups()) > 0:
                     matched_date_str = search_for_date.group(0)
-                    matched_date = datetime.strptime(matched_date_str, "%B %d, %Y")
-                    minutes_date = matched_date.strftime("%m/%d/%y")
+                    matched_date = datetime.strptime(matched_date_str, file_regex_date_format)
+                    minutes_date = matched_date.strftime(confluence_preffered_date_format)
 
 
         if presenterSection:
             if len(line_stripped) > 0 and not(re.match(r"(D|I|V)[^(a-z)]", line)):
                 presenters.append(line_stripped)
-                
-        regex_starts_with_number = r"(\d\d|\d).\s.+"
-        regex_is_table_label = r"[D|I|V]*\/*[D|I|V]*\/*[D|I|V]"
         
         if agendaSection:
 
@@ -562,14 +565,18 @@ def getFilesFromCommittee(committee:str) -> list:
     return ["/".join([committee, committeeFile]) for committeeFile in os.listdir(committee)]
 
 def getDateFromFile(file_name:str) -> list:
-    results = re.search(r"\d{1,2}(\/|-|_)\d{1,2}(\/|-|_)(\d{4}|\d{2})", file_name)
+
+    regex_valid_date = r"\d{1,2}(\/|-|_)\d{1,2}(\/|-|_)(\d{4}|\d{2})"
+    regex_date_seperators = r"-|\/|_"
+
+    results = re.search(regex_valid_date, file_name)
 
     if not(results):
         return []
 
     if len(results.groups()) > 0:
         first_occurrence = results.group(0)
-        return re.split(r"-|\/|_", first_occurrence)
+        return re.split(regex_date_seperators, first_occurrence)
 
 def padYear(year:str):
     if len(year) == 2 and year[0] == "0":
