@@ -23,8 +23,10 @@ def getAgendasFromFolder(folder_path:str) -> list:
     if not os.path.isdir(folder_path):
         logger.critical(folder_name + " is not a directory.")
         return None
+
+    agendas = [file for file in os.listdir(folder_path) if isAgenda(file)]
     
-    return [file for file in os.listdir(folder_path) if isAgenda(file)]
+    return agendas
 
 def getMinutesFromFolder(folder_path:str) -> list:
 
@@ -37,8 +39,9 @@ def getMinutesFromFolder(folder_path:str) -> list:
         logger.critical(folder_name + " is not a directory.")
         return None
     
-    return [file for file in os.listdir(folder_path) if isMinutes(file)]
-        
+    minutes = [file for file in os.listdir(folder_path) if isMinutes(file)]
+    
+    return minutes
     
 
 def getAgenda(lines_of_file:list) -> dict:
@@ -58,8 +61,8 @@ def getAgenda(lines_of_file:list) -> dict:
     Returns:
         dict: A dictionary like above.
     """
-    agenda = None
-    presenters = None
+    agenda = []
+    presenters = []
     minutesDate = None
     agendaSection = False
     presenterSection = False
@@ -67,40 +70,50 @@ def getAgenda(lines_of_file:list) -> dict:
     committee_name = None
     line_index = 0
 
-    lastTopic = None
+    lastTopic = ""
 
     for line in lines_of_file:
-        if "Outcome".lower() in line.lower():
+
+        lower = line.lower().strip()
+
+        if "outcome" in lower:
             agendaSection = True
             continue
 
-        if "Presenter".lower() in line.lower():
+        if presenterSection and not agendaSection and len(lower) < 1:
+            agendaSection = True
+            presenterSection = False
+
+        if "presenter" in lower or "leader" in lower:
             agendaSection = False
             presenterSection = True
             continue
         
-        if "Desired Outcome".lower() in line.lower():
+        if "desired outcome" in lower:
             presenterSection = False
             continue
 
-        if len(line) < 1:
+        if len(lower) < 1:
             continue
 
         if line_index == 1:
             committee_name = line.strip().replace("Meeting of the ", "")
-            print(committee_name)
         
 
-        if re.match(r"(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),\s(January|February|March|April|May|June|July|August|September|October|November|December)\s\d+,\s\d{4}", line) and line_index < 5:
-            date_formatted = line.split("at")[0].strip()
-            date_formatted = datetime.strptime(date_formatted, "%A, %B %d, %Y").date()
-            date_formatted = date_formatted.strftime("%m/%d/%y")
-            minutesDate = date_formatted
-        elif re.match(r"(January|February|March|April|May|June|July|August|September|October|November|December)\s(\d|\d\d),\s(\d\d\d\d|\d\d)\sat\s(\d|\d\d):\d\d\s(a|p)\.m\.", line) and line_index < 5:
-            date_formatted = line.split("at")[0].strip()
-            date_formatted = datetime.strptime(date_formatted, "%B %d, %Y")
-            date_formatted = date_formatted.strftime("%m/%d/%y")
-            minutesDate = date_formatted
+        if line_index < 5 and re.match(r"(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),\s(January|February|March|April|May|June|July|August|September|October|November|December)\s\d+,\s\d{4}", line):
+            date_formatted = line.split("at")[0].replace("EST", "")
+            date_formatted = date_formatted.replace(",", "")
+            date_formatted = re.sub(r"((\d|\d\d):\d\d\s(a|A|P|p)(\.{0,1})m(\.{0,1}))", "", date_formatted)
+            date_formatted = date_formatted.strip()
+            date_formatted = datetime.strptime(date_formatted, "%A %B %d %Y").date()
+            minutesDate = date_formatted.strftime("%m/%d/%y")
+        elif line_index < 5 and re.match(r"(January|February|March|April|May|June|July|August|September|October|November|December)\s(\d|\d\d),\s(\d\d\d\d|\d\d)\sat\s(\d|\d\d):\d\d\s(a|p)\.m\.", line):
+            date_formatted = line.split("at")[0]
+            date_formatted = date_formatted.replace(",", "")
+            date_formatted = re.sub(r"((\d|\d\d):\d\d\s(a|A|P|p)(\.{0,1})m(\.{0,1}))", "", date_formatted)
+            date_formatted = date_formatted.strip()
+            date_formatted = datetime.strptime(date_formatted, "%B %d %Y").date()
+            minutesDate = date_formatted.strftime("%m/%d/%y")
 
 
         if presenterSection:
@@ -108,7 +121,7 @@ def getAgenda(lines_of_file:list) -> dict:
                 presenters.append(line.strip())
                 
         if agendaSection:
-            if lastTopic == "" and re.match(r"(\d\d|\d).\s.+", line.strip()):
+            if lastTopic == None and re.match(r"(\d\d|\d).\s.+", line.strip()):
                 lastTopic = line.replace("\n", " ")
             elif lastTopic != "" and not(re.match(r"(\d\d|\d).\s.+", line.strip())):
                 lastTopic += line
@@ -119,7 +132,7 @@ def getAgenda(lines_of_file:list) -> dict:
                 lastTopic = line
         line_index += 1
             
-        if re.match(r"(\d\d|\d).\s.+", lastTopic.strip()):
+        if lastTopic != None and re.match(r"(\d\d|\d).\s.+", lastTopic.strip()):
             cleanedTopic = lastTopic.replace("\n", " ")
             cleanedTopic = re.sub(r"(\d|\d\d)\.\s", "", cleanedTopic).strip()
             cleanedTopic = re.sub(r"[D|I|V]*\/*[D|I|V]*\/*[D|I|V]", "", cleanedTopic)
@@ -456,14 +469,18 @@ def uploadCommitteeMinute(committeeMinutesAgendaFilePath:str, committeeMinutesTo
     attendees_lines = None
     agenda_lines = None
 
-    with(open(attendees_file_path, "r")) as attendees_file:
-        attendees_lines = [line for line in attendees_file]
+    with(open(attendees_file_path, "r", encoding="utf-8")) as agenda_file:
+        #\0x9d
+        agenda_lines = [line for line in agenda_file]
 
-    with(open(minutes_file_path, "r")) as minutes_file:
-        agenda_lines = [line for line in minutes_file]
+    with(open(minutes_file_path, "r", encoding="utf-8")) as minutes_file:
+        attendees_lines = [line for line in minutes_file]
     
     attendees = getAttendees(attendees_lines)
     agenda = getAgenda(agenda_lines)
+
+    if attendees == None or agenda == None:
+        return
 
     presenters = []
 
@@ -485,12 +502,11 @@ def uploadCommitteeMinute(committeeMinutesAgendaFilePath:str, committeeMinutesTo
 
     title = committee_name + " - Minutes - " + agenda["Minutes Date"]
 
-    payload = parsed_minute.replace("\\r\\n", "").replace("&", "and")
+    payload = parsed_minute.replace("\\r\\n", "").replace("&", "and").replace(b"\0x9d", "'")
 
     minutes_child_page = getMinutesConfluencePage(commmitteeMinutesParentPageID)
 
     result = api.create_page(committeeSpaceID, title, payload, str(minutes_child_page))
-    print(result)
     debugging.pause()
     
 
