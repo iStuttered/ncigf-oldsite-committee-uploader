@@ -51,7 +51,7 @@ def getAgenda(lines_of_file:list) -> dict:
     {
         "Agenda": agenda,
         "Presenters": presenters,
-        "Minutes Date": minutesDate,
+        "Minutes Date": minute_date,
         "Committee Name": committee_name
     }
     
@@ -63,7 +63,7 @@ def getAgenda(lines_of_file:list) -> dict:
     """
     agenda = []
     presenters = []
-    minutesDate = None
+    minutes_date = None
     agendaSection = False
     presenterSection = False
 
@@ -101,10 +101,11 @@ def getAgenda(lines_of_file:list) -> dict:
         
         if line_index < 5:
             search_for_date = re.search(r"(January|February|March|April|May|June|July|August|September|October|November|December)\s\d+,\s\d{4}", line)
-            if len(search_for_date.groups()) > 0:
-                matched_date_str = search_for_date.group(0)
-                matched_date = datetime.strptime(matched_date_str, "%B %d, %Y")
-                formatted_date = matched_date.strftime("%m/%d/%y")
+            if not(search_for_date == None):
+                if len(search_for_date.groups()) > 0:
+                    matched_date_str = search_for_date.group(0)
+                    matched_date = datetime.strptime(matched_date_str, "%B %d, %Y")
+                    minutes_date = matched_date.strftime("%m/%d/%y")
 
 
         if presenterSection:
@@ -129,7 +130,7 @@ def getAgenda(lines_of_file:list) -> dict:
             cleanedTopic = re.sub(r"[D|I|V]*\/*[D|I|V]*\/*[D|I|V]", "", cleanedTopic)
             agenda.append(cleanedTopic.strip())
 
-    minutes_failure = minutesDate == None or len(minutesDate) < 1
+    minutes_failure = minutes_date == None or len(minutes_date) < 1
     presenters_failure = presenters == None or len(presenters) < 1
     agenda_failure = agenda == None or len(agenda) < 1
     committee_name_failure = committee_name == None or len(committee_name) < 1
@@ -153,7 +154,7 @@ def getAgenda(lines_of_file:list) -> dict:
     return {
         "Agenda": agenda,
         "Presenters": presenters,
-        "Minutes Date": minutesDate,
+        "Minutes Date": minutes_date,
         "Committee Name": committee_name
     }
 
@@ -358,13 +359,13 @@ def buildCommitteeAgenda(agenda:list) -> str:
 
     return beginning + table + closing
 
-def buildCommitteeStatus(committeeName:str, minutesDate:str, committeeStatus:str) -> str:
+def buildCommitteeStatus(committeeName:str, minutes_date:str, committeeStatus:str) -> str:
     """
     Get the status of a paticular committee.
     
     Args:
         committeeName (str): The name of a committee
-        minutesDate (str): The date of a particular minutes
+        minutes_date (str): The date of a particular minutes
     committeeStatus (str): The status of a paticular committee as "Approved"
     "
     
@@ -377,7 +378,7 @@ def buildCommitteeStatus(committeeName:str, minutesDate:str, committeeStatus:str
     table = "<table class=\"wrapped\"><colgroup><col /><col /></colgroup><tbody><tr><th><p>Committee Name</p></th><td><p>"
     table += committeeName + "</p></td></tr><tr><th><p>Date</p></th><td><p>"
 
-    table += minutesDate + "</p></td></tr><tr><th><p>Status</p></th><td><div class=\"content-wrapper\"><ac:structured-macro ac:name=\"minutestatus\" ac:schema-version=\"1\" ac:macro-id=\"1c0ed33a-a4c3-48f4-9a49-4b1a9735e9bf\"><ac:parameter ac:name=\"atlassian-macro-output-type\">INLINE</ac:parameter><ac:rich-text-body><p>"
+    table += minutes_date + "</p></td></tr><tr><th><p>Status</p></th><td><div class=\"content-wrapper\"><ac:structured-macro ac:name=\"minutestatus\" ac:schema-version=\"1\" ac:macro-id=\"1c0ed33a-a4c3-48f4-9a49-4b1a9735e9bf\"><ac:parameter ac:name=\"atlassian-macro-output-type\">INLINE</ac:parameter><ac:rich-text-body><p>"
     table += committeeStatus + "</p></ac:rich-text-body></ac:structured-macro></div></td></tr></tbody></table>"
         
     closing = "</ac:rich-text-body></ac:structured-macro></ac:rich-text-body></ac:structured-macro>"
@@ -388,7 +389,7 @@ def buildCommitteeStatus(committeeName:str, minutesDate:str, committeeStatus:str
 
 def buildMinute(
     committeeName:str,
-    committeeMinutesDate:str,
+    committeeminutes_date:str,
     committeeMinutesAttending:list, 
     committeeMinutesNotAttending:list, 
     committeeMinutesOtherAttending:list,
@@ -403,7 +404,7 @@ def buildMinute(
     
     beginning = "<ac:structured-macro ac:name=\"content-layer\" ac:schema-version=\"1\" ac:macro-id=\"9dec53ff-ddd1-4959-824f-4f1ae61c797a\"><ac:parameter ac:name=\"id\">1856481233</ac:parameter><ac:rich-text-body><ac:structured-macro ac:name=\"content-column\" ac:schema-version=\"1\" ac:macro-id=\"2c808257-9edf-40b1-a12d-466b68e25950\"><ac:parameter ac:name=\"id\">1856481236</ac:parameter><ac:rich-text-body>"
         
-    content = str(buildCommitteeStatus(committeeName, committeeMinutesDate, committeeMinutesStatus))
+    content = str(buildCommitteeStatus(committeeName, committeeminutes_date, committeeMinutesStatus))
     content += str(buildCommitteeAgenda(committeeAgenda))
     content += str(buildCommitteeAttending(committeeMinutesAttending, committeeMinutesNotAttending, committeeMinutesOtherAttending))
     content += str(buildCommitteeMinutes(committeeTopics))
