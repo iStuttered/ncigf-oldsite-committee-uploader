@@ -79,26 +79,21 @@ def getAgenda(lines_of_file:list) -> dict:
 
         if "outcome" in line_lower or "agenda" in line_lower:
             agendaSection = True
+            presenterSection = False
             continue
-
-        if presenterSection and not agendaSection and len(line_lower) < 1:
+        elif presenterSection and not agendaSection and len(line_lower) < 1:
             agendaSection = True
             presenterSection = False
-
-        if "presenter" in line_lower or "leader" in line_lower:
+            continue
+        elif "presenter" in line_lower or "leader" in line_lower:
             agendaSection = False
             presenterSection = True
             continue
-        
-        if "desired outcome" in line_lower:
+        elif "desired outcome" in line_lower:
             presenterSection = False
             continue
-
-        if len(line_lower) < 1:
+        elif len(line_lower) < 1:
             continue
-
-        if line_index == 1:
-            committee_name = line_stripped.replace("Meeting of the ", "")
         
         regex_long_form_date = r"(January|February|March|April|May|June|July|August|September|October|November|December)\s\d+,\s\d{4}"
         regex_starts_with_number = r"(\d\d|\d).\s.+"
@@ -131,7 +126,7 @@ def getAgenda(lines_of_file:list) -> dict:
                 lastTopic = line
         line_index += 1
             
-        if lastTopic != None and re.match(regex_starts_with_number, lastTopic.strip()):
+        if lastTopic != None and len(lastTopic) < 1 and re.match(regex_starts_with_number, lastTopic.strip()):
             cleanedTopic = lastTopic.replace("\n", " ")
             cleanedTopic = re.sub(regex_starts_with_number, "", cleanedTopic).strip()
             cleanedTopic = re.sub(regex_is_table_label, "", cleanedTopic)
@@ -140,7 +135,6 @@ def getAgenda(lines_of_file:list) -> dict:
     date_failure = not minutes_date or len(minutes_date) < 1
     presenters_failure = not presenters or len(presenters) < 1
     agenda_failure = not agenda or len(agenda) < 1
-    committee_name_failure = not committee_name or len(committee_name) < 1
 
 
     if date_failure:
@@ -151,18 +145,14 @@ def getAgenda(lines_of_file:list) -> dict:
 
     if agenda_failure:
         logger.warning("No agenda was retrieved for this file.")
-    
-    if committee_name_failure:
-        logger.warning("No committee name present.")
 
-    if date_failure or presenters_failure or agenda_failure or committee_name_failure:
+    if date_failure or presenters_failure or agenda_failure:
         return None
 
     return {
         "Agenda": agenda,
         "Presenters": presenters,
-        "Minutes Date": minutes_date,
-        "Committee Name": committee_name
+        "Minutes Date": minutes_date
     }
 
 def getAttendees(lines_in_file:list) -> dict:
@@ -489,7 +479,6 @@ def uploadCommitteeMinute(committeeMinutesAgendaFilePath:str, committeeMinutesTo
     agenda_lines = None
 
     with(open(attendees_file_path, "r", encoding="utf-8")) as agenda_file:
-        #\0x9d
         agenda_lines = [line for line in agenda_file]
 
     with(open(minutes_file_path, "r", encoding="utf-8")) as minutes_file:
@@ -503,11 +492,18 @@ def uploadCommitteeMinute(committeeMinutesAgendaFilePath:str, committeeMinutesTo
 
     presenters = []
 
-    for presenterIndex in range(len(attendees["Topics"])):
-        presenters.append({
-            "Topic": agenda["Agenda"][presenterIndex],
-            "Presenter": agenda["Presenters"][presenterIndex]
-        })
+    if len(attendees["Topics"]) != len(agenda["Presenters"]):
+        for presenterIndex in range(len(agenda["Presenters"])):
+            presenters.append({
+                "Topic": agenda["Agenda"][presenterIndex],
+                "Presenter": ""
+            })
+    else:
+        for presenterIndex in range(len(attendees["Topics"])):
+            presenters.append({
+                "Topic": agenda["Agenda"][presenterIndex],
+                "Presenter": agenda["Presenters"][presenterIndex]
+            })
 
     parsed_minute = buildMinute(
             committee_name, 
@@ -527,11 +523,15 @@ def uploadCommitteeMinute(committeeMinutesAgendaFilePath:str, committeeMinutesTo
 
     resulting_page = api.create_page(committeeSpaceID, title, payload, str(minutes_child_page))
 
-    if resulting_page:
+    try:
 
         resulting_page_id = resulting_page["id"]
-
         api.set_page_label(resulting_page_id, "minutes")
+
+        logger.info("Successful uploaded " + resulting_page_id + " with label.")
+
+    except:
+        logger.info("Confluence Page already exists.")
 
     debugging.pause()
 
