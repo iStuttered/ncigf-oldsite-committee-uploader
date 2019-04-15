@@ -66,8 +66,6 @@ def getAgenda(lines_of_file:list) -> dict:
     minutes_date = None
     agendaSection = False
     presenterSection = False
-
-    committee_name = None
     line_index = 0
 
     lastTopic = ""
@@ -115,27 +113,24 @@ def getAgenda(lines_of_file:list) -> dict:
                 presenters.append(line_stripped)
         
         if agendaSection:
-            if not lastTopic and re.match(regex_starts_with_number, line_stripped):
+            if lastTopic == "" and re.match(regex_starts_with_number, line_stripped):
                 lastTopic = line.replace("\n", " ")
             elif lastTopic != "" and not re.match(regex_starts_with_number, line_stripped):
                 lastTopic += line
             elif lastTopic != "" and re.match(regex_starts_with_number, line_stripped):
                 cleanedTopic = lastTopic.replace("\n", " ")
-                cleanedTopic = re.sub(regex_starts_with_number, "", cleanedTopic).strip()
-                agenda.append(cleanedTopic)
+                agenda.append(cleanedTopic.strip())
                 lastTopic = line
         line_index += 1
             
-        if lastTopic != None and len(lastTopic) < 1 and re.match(regex_starts_with_number, lastTopic.strip()):
+        if lastTopic != "" and len(lastTopic) < 1 and re.match(regex_starts_with_number, lastTopic.strip()):
             cleanedTopic = lastTopic.replace("\n", " ")
-            cleanedTopic = re.sub(regex_starts_with_number, "", cleanedTopic).strip()
             cleanedTopic = re.sub(regex_is_table_label, "", cleanedTopic)
             agenda.append(cleanedTopic.strip())
 
     date_failure = not minutes_date or len(minutes_date) < 1
     presenters_failure = not presenters or len(presenters) < 1
     agenda_failure = not agenda or len(agenda) < 1
-
 
     if date_failure:
         logger.warning("No date was retrieved for this file.")
@@ -487,15 +482,19 @@ def uploadCommitteeMinute(committeeMinutesAgendaFilePath:str, committeeMinutesTo
     attendees = getAttendees(attendees_lines)
     agenda = getAgenda(agenda_lines)
 
-    if not attendees or not agenda:
+    if not attendees:
+        logger.error("Attendees object not present.")
         return
+
+    if not agenda:
+        logger.error("Agenda object not present.")
 
     presenters = []
 
     if len(attendees["Topics"]) != len(agenda["Presenters"]):
-        for presenterIndex in range(len(agenda["Presenters"])):
+        for agenda_index in range(len(agenda["Agenda"])):
             presenters.append({
-                "Topic": agenda["Agenda"][presenterIndex],
+                "Topic": agenda["Agenda"][agenda_index],
                 "Presenter": ""
             })
     else:
@@ -517,7 +516,7 @@ def uploadCommitteeMinute(committeeMinutesAgendaFilePath:str, committeeMinutesTo
 
     title = committee_name + " - Minutes - " + agenda["Minutes Date"]
 
-    payload = parsed_minute.replace("\\r\\n", "").replace("&", "and").replace("\\0x9d", "'")
+    payload = parsed_minute.replace("\\r\\n", "").replace("&", "and").replace("â€™", "'")
 
     minutes_child_page = getMinutesConfluencePage(commmitteeMinutesParentPageID)
 
