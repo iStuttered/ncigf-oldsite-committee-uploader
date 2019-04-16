@@ -24,7 +24,7 @@ def getAgendasFromFolder(folder_path:str) -> list:
         logger.critical(folder_name + " is not a directory.")
         return None
 
-    agendas = [file for file in os.listdir(folder_path) if isAgenda(file)]
+    agendas = (file for file in os.listdir(folder_path) if isAgenda(file))
     
     return agendas
 
@@ -39,7 +39,7 @@ def getMinutesFromFolder(folder_path:str) -> list:
         logger.critical(folder_name + " is not a directory.")
         return None
     
-    minutes = [file for file in os.listdir(folder_path) if isMinutes(file)]
+    minutes = (file for file in os.listdir(folder_path) if isMinutes(file))
     
     return minutes
     
@@ -488,6 +488,7 @@ def uploadCommitteeMinute(committeeMinutesAgendaFilePath:str, committeeMinutesTo
 
     if not agenda:
         logger.error("Agenda object not present.")
+        return
 
     presenters = []
 
@@ -527,7 +528,7 @@ def uploadCommitteeMinute(committeeMinutesAgendaFilePath:str, committeeMinutesTo
         resulting_page_id = resulting_page["id"]
         api.set_page_label(resulting_page_id, "minutes")
 
-        logger.info("Successful uploaded " + resulting_page_id + " with label.")
+        logger.info("Successfully uploaded " + resulting_page_id + " with label.")
 
     except:
         logger.info("Confluence Page already exists.")
@@ -570,11 +571,11 @@ def getCommitteesFromFileSystem() -> list:
 
     parent_directory = credentials.getCommitteesDirectory()
 
-    return [
+    return (
         "\\".join([parent_directory, folder]) 
         for folder in os.listdir(parent_directory) 
         if os.path.isdir("\\".join([parent_directory, folder]))
-    ]
+    )
 
 def getFilesFromCommittee(committee:str) -> list:
     """
@@ -586,7 +587,7 @@ def getFilesFromCommittee(committee:str) -> list:
     Returns:
         list: A list of files with absolute paths within a committee folder.
     """
-    return ["/".join([committee, committeeFile]) for committeeFile in os.listdir(committee)]
+    return ("/".join([committee, committeeFile]) for committeeFile in os.listdir(committee))
 
 def getDateFromFile(file_name:str) -> list:
 
@@ -640,9 +641,6 @@ def getFilesWithSimilarDate(file_name:str, agendas_list:list) -> list:
             matches.append(agenda)
 
     return matches
-
-
-
 
 def mergeMatches():
     """
