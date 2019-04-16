@@ -290,10 +290,10 @@ def buildCommitteeMinutes(topics:list) -> str:
         
     table = ""
 
-    for index in range(len(topics)):
-        table += "<h2>" + topics[index]["Topic"] + "</h2>"
+    for topic in topics:
+        table += "<h2>" + topic["Topic"] + "</h2>"
 
-        paragraphs = topics[index]["Description"].split("\n\n")
+        paragraphs = topic["Description"].split("\n\n")
 
         for description in paragraphs:
             table += "<p>" + description + "</p>"
@@ -319,22 +319,22 @@ def buildCommitteeAttending(attending:list, notattending:list, otherattending:li
         
     table = "<table class=\"wrapped\"><colgroup><col style=\"width: 29.0px;\" /></colgroup><tbody><tr><th style=\"text-align: left;\">Members Attending</th></tr>"
         
-    for index in range(len(attending)):
-        if "\u00e2\u0080\u0093" in attending[index]:
-            temp = ", ".join(attending[index].split("\u00e2\u0080\u0093"))
+    for attendee in attending:
+        if "\u00e2\u0080\u0093" in attendee:
+            temp = ", ".join(attendee.split("\u00e2\u0080\u0093"))
             table += "<tr><td colspan=\"1\">" + temp + "</td></tr>"
         else:
-            table += "<tr><td colspan=\"1\">" + attending[index] + "</td></tr>"
+            table += "<tr><td colspan=\"1\">" + attendee + "</td></tr>"
 
     table += "</tbody></table><table class=\"wrapped\"><colgroup><col /></colgroup><tbody><tr><th>Members Not Attending</th></tr>"
         
-    for index in range(len(notattending)):
-        table += "<tr><td colspan=\"1\">" + notattending[index] + "</td></tr>"
+    for notattendee in notattending:
+        table += "<tr><td colspan=\"1\">" + notattendee + "</td></tr>"
     
     table += "</tbody></table><table class=\"wrapped\"><colgroup><col /></colgroup><tbody><tr><th>Others Attending</th></tr>"
         
-    for index in range(len(otherattending)):
-        table += "<tr><td colspan=\"1\">" + otherattending[index] + "</td></tr>"
+    for otherattendee in otherattending:
+        table += "<tr><td colspan=\"1\">" + otherattendee + "</td></tr>"
             
     table += "</tbody></table>"
 
@@ -362,8 +362,8 @@ def buildCommitteeAgenda(agenda:list) -> str:
         
     table = "<table class=\"wrapped\"><colgroup><col /><col /></colgroup><tbody><tr><th>Topic</th><th>Presenter</th></tr>"
 
-    for index in range(len(agenda)):
-        table += "<tr><td colspan=\"1\">" + " - ".join(str(agenda[index]["Topic"]).split("\u00e2\u20ac\u201c")) + "</td><td colspan=\"1\">" + str(agenda[index]["Presenter"]) + "</td></tr>"
+    for topic in agenda:
+        table += "<tr><td colspan=\"1\">" + " - ".join(str(topic["Topic"]).split("\u00e2\u20ac\u201c")) + "</td><td colspan=\"1\">" + str(topic["Presenter"]) + "</td></tr>"
     
     table += "</tbody></table>"
 
@@ -474,10 +474,10 @@ def uploadCommitteeMinute(committeeMinutesAgendaFilePath:str, committeeMinutesTo
     agenda_lines = None
 
     with(open(attendees_file_path, "r", encoding="utf-8")) as agenda_file:
-        agenda_lines = [line for line in agenda_file]
+        agenda_lines = (line for line in agenda_file)
 
     with(open(minutes_file_path, "r", encoding="utf-8")) as minutes_file:
-        attendees_lines = [line for line in minutes_file]
+        attendees_lines = (line for line in minutes_file)
     
     attendees = getAttendees(attendees_lines)
     agenda = getAgenda(agenda_lines)
