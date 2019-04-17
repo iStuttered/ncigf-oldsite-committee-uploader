@@ -467,16 +467,32 @@ def uploadCommitteeMinute(committeeMinutesAgendaFilePath:str, committeeMinutesTo
 
     committee_base_url = credentials.getCommitteesDirectory()
 
-    attendees_file_path = "\\".join([committee_base_url, committee_name, committeeMinutesAgendaFilePath])
-    minutes_file_path = "\\".join([committee_base_url, committee_name, committeeMinutesTopicsFilePath])
+    committee_minutes_file_name_no_ext = committeeMinutesTopicsFilePath.split("\\")[-1].split(".")[0]
+    committee_agenda_file_name_no_ext = committeeMinutesAgendaFilePath.split("\\")[-1].split(".")[0]
+
+    pdf_extension = ".pdf"
+    txt_extension = ".txt"
+
+    committee_file_path = "\\".join([committee_base_url, committee_name])
+
+
+
+    attendees_file_path_txt = "\\".join([committee_file_path, committee_agenda_file_name_no_ext]) + txt_extension
+    minutes_file_path_txt = "\\".join([committee_file_path, committee_minutes_file_name_no_ext]) + txt_extension
+
+    attendees_file_path_pdf = "\\".join([committee_file_path, committee_agenda_file_name_no_ext]) + pdf_extension
+    minutes_file_path_pdf = "\\".join([committee_file_path, committee_minutes_file_name_no_ext]) + pdf_extension
+
+    minutes_file_name_pdf = committee_minutes_file_name_no_ext + pdf_extension
+    agenda_file_name_pdf = committee_agenda_file_name_no_ext + pdf_extension
     
     attendees_lines = None
     agenda_lines = None
 
-    with(open(attendees_file_path, "r", encoding="utf-8")) as agenda_file:
+    with(open(attendees_file_path_txt, "r", encoding="utf-8")) as agenda_file:
         agenda_lines = (line for line in agenda_file)
 
-    with(open(minutes_file_path, "r", encoding="utf-8")) as minutes_file:
+    with(open(minutes_file_path_txt, "r", encoding="utf-8")) as minutes_file:
         attendees_lines = (line for line in minutes_file)
     
     attendees = getAttendees(attendees_lines)
@@ -527,6 +543,9 @@ def uploadCommitteeMinute(committeeMinutesAgendaFilePath:str, committeeMinutesTo
 
         resulting_page_id = resulting_page["id"]
         api.set_page_label(resulting_page_id, "minutes")
+
+        api.attach_file(attendees_file_path_pdf, resulting_page_id, agenda_file_name_pdf, committeeSpaceID)
+        api.attach_file(minutes_file_path_pdf, resulting_page_id, minutes_file_name_pdf, committeeSpaceID)
 
         logger.info("Successfully uploaded " + resulting_page_id + " with label.")
 
