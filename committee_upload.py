@@ -4,7 +4,7 @@ from os import listdir
 from os.path import isfile, join, isdir, exists
 from datetime import datetime
 
-api = credentials.generateSession()
+confluence_api = credentials.generateSession()
 logger = debugging.generateLogger()
 
 def isAgenda(file_name) -> bool:
@@ -12,6 +12,9 @@ def isAgenda(file_name) -> bool:
 
 def isMinutes(file_name:str) -> bool:
     return "minutes" in file_name.lower()
+
+def isFileEXT(file_name:str, file_ext:str) -> bool:
+    return file_name.split(".")[-1] == file_ext
 
 def getAgendasFromFolder(folder_path:str) -> list:
 
@@ -24,7 +27,7 @@ def getAgendasFromFolder(folder_path:str) -> list:
         logger.critical(folder_name + " is not a directory.")
         return None
 
-    agendas = (file for file in os.listdir(folder_path) if isAgenda(file))
+    agendas = (file for file in os.listdir(folder_path) if isAgenda(file) and isFileEXT(file, "txt"))
     
     return agendas
 
@@ -39,7 +42,7 @@ def getMinutesFromFolder(folder_path:str) -> list:
         logger.critical(folder_name + " is not a directory.")
         return None
     
-    minutes = (file for file in os.listdir(folder_path) if isMinutes(file))
+    minutes = (file for file in os.listdir(folder_path) if isMinutes(file) and isFileEXT(file, "txt"))
     
     return minutes
     
@@ -441,15 +444,20 @@ def padMonthOrDay(dateValue:int) -> str:
         return str(dateValue)
 
 def getMinutesConfluencePage(committeeMinutesParentPageID:str) -> str:
-    child_pages = api.get_child_pages(committeeMinutesParentPageID)
 
-    if len(child_pages) < 1:
+    if not committeeMinutesParentPageID:
+        logger.warning("No committeeMinutesParentPageID supplied.")
+        return None
+
+    child_pages = confluence_api.get_child_pages(committeeMinutesParentPageID)
+
+    if not child_pages or len(child_pages) < 1:
         logger.warning("This committee contains no child pages. " + committeeMinutesParentPageID)
         return None
 
     for page in child_pages:
         if "minutes" in page["title"].lower():
-            return page["id"]
+            return int(page["id"])
 
     logger.warning("This committee contains no Minutes page. " + committeeMinutesParentPageID)
     return None
@@ -475,25 +483,20 @@ def uploadCommitteeMinute(committeeMinutesAgendaFilePath:str, committeeMinutesTo
 
     committee_file_path = "\\".join([committee_base_url, committee_name])
 
-
-
     attendees_file_path_txt = "\\".join([committee_file_path, committee_agenda_file_name_no_ext]) + txt_extension
     minutes_file_path_txt = "\\".join([committee_file_path, committee_minutes_file_name_no_ext]) + txt_extension
 
     attendees_file_path_pdf = "\\".join([committee_file_path, committee_agenda_file_name_no_ext]) + pdf_extension
     minutes_file_path_pdf = "\\".join([committee_file_path, committee_minutes_file_name_no_ext]) + pdf_extension
-
-    minutes_file_name_pdf = committee_minutes_file_name_no_ext + pdf_extension
-    agenda_file_name_pdf = committee_agenda_file_name_no_ext + pdf_extension
     
     attendees_lines = None
     agenda_lines = None
 
     with(open(attendees_file_path_txt, "r", encoding="utf-8")) as agenda_file:
-        agenda_lines = (line for line in agenda_file)
+        agenda_lines = [line for line in agenda_file]
 
     with(open(minutes_file_path_txt, "r", encoding="utf-8")) as minutes_file:
-        attendees_lines = (line for line in minutes_file)
+        attendees_lines = [line for line in minutes_file]
     
     attendees = getAttendees(attendees_lines)
     agenda = getAgenda(agenda_lines)
@@ -537,45 +540,52 @@ def uploadCommitteeMinute(committeeMinutesAgendaFilePath:str, committeeMinutesTo
 
     minutes_child_page = getMinutesConfluencePage(commmitteeMinutesParentPageID)
 
-    resulting_page = api.create_page(committeeSpaceID, title, payload, str(minutes_child_page))
+    if not minutes_child_page:
+        logger.error("Could not retrieve the 'Minutes' child page from parent.")
+        return
+
+    resulting_page = confluence_api.create_page(committeeSpaceID, title, payload, int(minutes_child_page))
 
     try:
 
         resulting_page_id = resulting_page["id"]
-        api.set_page_label(resulting_page_id, "minutes")
+        confluence_api.set_page_label(resulting_page_id, "minutes")
 
-        api.attach_file(attendees_file_path_pdf, resulting_page_id, agenda_file_name_pdf, committeeSpaceID)
-        api.attach_file(minutes_file_path_pdf, resulting_page_id, minutes_file_name_pdf, committeeSpaceID)
+        attachment_1 = confluence_api.attach_file(attendees_file_path_pdf, int(resulting_page_id))
+        attachment_2 = confluence_api.attach_file(minutes_file_path_pdf, int(resulting_page_id))
+
+        print(attachment_1)
+        print(attachment_2)
 
         logger.info("Successfully uploaded " + resulting_page_id + " with label.")
 
-    except:
-        logger.info("Confluence Page already exists.")
+    except KeyError:
+        logger.warning("Confluence Page already exists.")
 
     debugging.pause()
 
 
 def getPageIDFromCommitteeName(committee_name:str, committee_parent_page_id:int = 1278261):
-    committees = api.request(
+    committees = confluence_api.request(
         method="GET",
         path="rest/api/content/" + str(committee_parent_page_id) + "/child/page"
     )
 
     if committees.status_code == 200:
         committees = committees.json()["results"]
-        committee_ids = [committee["id"] for committee in committees if committee_name.lower() in committee["title"].lower()]
+        committee_ids = list(committee["id"] for committee in committees if committee_name.lower() in committee["title"].lower())
 
         if len(committee_ids) < 1:
             logger.warning("No committees exist with that name on Confluence. " + committee_name)
-            return []
+            return None
         elif len(committee_ids) > 1:
             logger.warning("More than one committe with that name on Confluence." + committee_name)
-            return committee_ids
+            return None
         else:
             return committee_ids[0]
     else:
-        return []
-    return []
+        return None
+    return None
 
 def getCommitteesFromFileSystem() -> list:
     """
@@ -700,7 +710,10 @@ def mergeMatches():
 
             committee_id = getPageIDFromCommitteeName(committee_name)
 
-            uploadCommitteeMinute(only_match, file, committee_id, committee_name)
+            if not committee_id:
+                logger.error("Could not get committee_id from name " + committee_name)
+            else:
+                uploadCommitteeMinute(only_match, file, committee_id, committee_name)
 
             debugging.pause()
 
