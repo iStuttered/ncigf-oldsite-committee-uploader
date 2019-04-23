@@ -98,6 +98,7 @@ def getAgenda(lines_of_file:list) -> dict:
         
         regex_long_form_date = r"(January|February|March|April|May|June|July|August|September|October|November|December)\s\d+,\s\d{4}"
         regex_starts_with_number = r"(\d\d|\d).\s.+"
+        regex_only_number = r"(\d\d|\d)(\.|\))\s"
         regex_is_table_label = r"[D|I|V]*\/*[D|I|V]*\/*[D|I|V]"
         confluence_preffered_date_format = "%m/%d/%y"
         file_regex_date_format = "%B %d, %Y"
@@ -124,6 +125,7 @@ def getAgenda(lines_of_file:list) -> dict:
                 cleanedTopic = lastTopic.replace("\n", " ")
                 agenda.append(cleanedTopic.strip())
                 lastTopic = line
+            lastTopic = re.sub(regex_only_number, "", lastTopic)
         line_index += 1
             
         if lastTopic != "" and len(lastTopic) < 1 and re.match(regex_starts_with_number, lastTopic.strip()):
@@ -554,8 +556,8 @@ def uploadCommitteeMinute(committeeMinutesAgendaFilePath:str, committeeMinutesTo
         attachment_1 = confluence_api.attach_file(attendees_file_path_pdf, int(resulting_page_id))
         attachment_2 = confluence_api.attach_file(minutes_file_path_pdf, int(resulting_page_id))
 
-        print(attachment_1)
-        print(attachment_2)
+        if attachment_1["statusCode"] or attachment_2["statusCode"]:
+            logger.error("Attachments failed to upload.")
 
         logger.info("Successfully uploaded " + resulting_page_id + " with label.")
 
