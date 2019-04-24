@@ -202,13 +202,13 @@ def getAttendees(lines_in_file:list) -> dict:
             section_othersAttending = False
             section_committeeTopics = False
             continue
-        elif "committee members not attending" in line_lower and not section_committeeTopics:
+        elif ("committee members not attending" in line_lower or "absent" in line_lower) and not section_committeeTopics:
             section_committeeMembersNotAttending = True
             section_committeeMembersAttending = False
             section_othersAttending = False
             section_committeeTopics = False
             continue
-        elif "other" in line_lower and not section_committeeTopics:
+        elif "other" in line_lower and "attending" in line_lower and not section_committeeTopics:
             section_othersAttending = True
             section_committeeMembersAttending = False
             section_committeeMembersNotAttending = False
@@ -477,6 +477,12 @@ def uploadCommitteeMinute(committeeMinutesAgendaFilePath:str, committeeMinutesTo
 
     committee_base_url = credentials.getCommitteesDirectory()
 
+    if not committeeMinutesAgendaFilePath:
+        committeeMinutesAgendaFilePath = ""
+
+    if not committeeMinutesTopicsFilePath:
+        committeeMinutesTopicsFilePath = ""
+
     committee_minutes_file_name_no_ext = committeeMinutesTopicsFilePath.split("\\")[-1].split(".")[0]
     committee_agenda_file_name_no_ext = committeeMinutesAgendaFilePath.split("\\")[-1].split(".")[0]
 
@@ -490,50 +496,59 @@ def uploadCommitteeMinute(committeeMinutesAgendaFilePath:str, committeeMinutesTo
 
     attendees_file_path_pdf = "\\".join([committee_file_path, committee_agenda_file_name_no_ext]) + pdf_extension
     minutes_file_path_pdf = "\\".join([committee_file_path, committee_minutes_file_name_no_ext]) + pdf_extension
-    
+
+    committee_agenda_empty = len(committee_agenda_file_name_no_ext) < 1
+    committee_minutes_empty = len(committee_minutes_file_name_no_ext) < 1
+
+    attendees = None
+    agenda = None
     attendees_lines = None
     agenda_lines = None
 
-    with(open(attendees_file_path_txt, "r", encoding="utf-8")) as agenda_file:
-        agenda_lines = [line for line in agenda_file]
+    if not committee_agenda_empty:
+        with(open(attendees_file_path_txt, "r", encoding="utf-8")) as agenda_file:
+            agenda_lines = (line for line in agenda_file)
+            agenda = getAgenda(agenda_lines)
+    else:
+        logger.warning("Attendees object not present.")
 
-    with(open(minutes_file_path_txt, "r", encoding="utf-8")) as minutes_file:
-        attendees_lines = [line for line in minutes_file]
-    
-    attendees = getAttendees(attendees_lines)
-    agenda = getAgenda(agenda_lines)
-
-    if not attendees:
-        logger.error("Attendees object not present.")
-        return
-
-    if not agenda:
-        logger.error("Agenda object not present.")
-        return
+    if not committee_minutes_empty:
+        with(open(minutes_file_path_txt, "r", encoding="utf-8")) as minutes_file:
+            attendees_lines = (line for line in minutes_file)
+            attendees = getAttendees(attendees_lines)
+    else:
+        logger.warning("Agenda object not present.")
 
     presenters = []
 
-    if len(attendees["Topics"]) != len(agenda["Presenters"]):
-        for agenda_index in range(len(agenda["Agenda"])):
+    if not committee_agenda_empty:
+        for topic in agenda["Agenda"]:
             presenters.append({
-                "Topic": agenda["Agenda"][agenda_index],
+                "Topic": topic,
                 "Presenter": ""
             })
-    else:
-        for presenterIndex in range(len(attendees["Topics"])):
-            presenters.append({
-                "Topic": agenda["Agenda"][presenterIndex],
-                "Presenter": agenda["Presenters"][presenterIndex]
-            })
 
-    parsed_minute = buildMinute(
-            committee_name, 
-            agenda["Minutes Date"], 
+    parsed_minute = ""
+
+    if committee_agenda_empty and not committee_minutes_empty:
+        parsed_minute = buildMinute(
+            committee_name,
+            None,
             attendees["Members Attending"], 
             attendees["Members NOT Attending"], 
-            attendees["Others Attending"], 
-            presenters,
-            attendees["Topics"])
+            attendees["Others Attending"],
+            None,
+            attendees["Topics"]
+        )
+    elif not committee_agenda_empty and committee_minutes_empty:
+        parsed_minute = buildMinute(
+                committee_name, 
+                agenda["Minutes Date"], 
+                None, 
+                None, 
+                None, 
+                presenters,
+                None)
 
 
     title = committee_name + " - Minutes - " + agenda["Minutes Date"]
@@ -699,23 +714,22 @@ def mergeMatches():
             
             matches = getFilesWithSimilarDate(file, agendas)
 
-            if len(matches) <= 0:
-                logger.warning("No matches for file " + current_file_name)
-                continue
-            elif len(matches) > 1:
-                logger.warning("More than one match for file " + current_file_name)
-                continue
-
-            only_match = matches[0]
-
-            logger.info("Matching " + current_file_name + " to " + only_match)
-
             committee_id = getPageIDFromCommitteeName(committee_name)
 
-            if not committee_id:
-                logger.error("Could not get committee_id from name " + committee_name)
+            if len(matches) <= 0:
+                logger.warning("No matches for file " + current_file_name)
+                uploadCommitteeMinute(None, file, committee_id, committee_name)
+            elif len(matches) > 1:
+                logger.warning("More than one match for file " + current_file_name)
             else:
-                uploadCommitteeMinute(only_match, file, committee_id, committee_name)
+                only_match = matches[0]
+
+                logger.info("Matching " + current_file_name + " to " + only_match)
+
+                if not committee_id:
+                    logger.error("Could not get committee_id from name " + committee_name)
+                else:
+                    uploadCommitteeMinute(only_match, file, committee_id, committee_name)
 
             debugging.pause()
 
