@@ -528,27 +528,14 @@ def uploadCommitteeMinute(committeeMinutesAgendaFilePath:str, committeeMinutesTo
                 "Presenter": ""
             })
 
-    parsed_minute = ""
-
-    if committee_agenda_empty and not committee_minutes_empty:
-        parsed_minute = buildMinute(
-            committee_name,
-            None,
+    parsed_minute = buildMinute(
+            committee_name, 
+            agenda["Minutes Date"], 
             attendees["Members Attending"], 
             attendees["Members NOT Attending"], 
-            attendees["Others Attending"],
-            None,
-            attendees["Topics"]
-        )
-    elif not committee_agenda_empty and committee_minutes_empty:
-        parsed_minute = buildMinute(
-                committee_name, 
-                agenda["Minutes Date"], 
-                None, 
-                None, 
-                None, 
-                presenters,
-                None)
+            attendees["Others Attending"], 
+            presenters,
+            attendees["Topics"])
 
 
     title = committee_name + " - Minutes - " + agenda["Minutes Date"]
@@ -560,18 +547,19 @@ def uploadCommitteeMinute(committeeMinutesAgendaFilePath:str, committeeMinutesTo
     if not minutes_child_page:
         logger.error("Could not retrieve the 'Minutes' child page from parent.")
         return
-
+ 
     resulting_page = confluence_api.create_page(committeeSpaceID, title, payload, int(minutes_child_page))
 
     try:
 
         resulting_page_id = resulting_page["id"]
         confluence_api.set_page_label(resulting_page_id, "minutes")
-
-        attachment_1 = confluence_api.attach_file(attendees_file_path_pdf, int(resulting_page_id))
+        attachment_1 = confluence_api.attach_file(attendees_file_path_pdf, int(resulting_page_id), os.path.basename(attendees_file_path_pdf), committeeSpaceID)
         attachment_2 = confluence_api.attach_file(minutes_file_path_pdf, int(resulting_page_id))
 
         if attachment_1["statusCode"] or attachment_2["statusCode"]:
+            print(attachment_1)
+            print(attachment_2)
             logger.error("Attachments failed to upload.")
 
         logger.info("Successfully uploaded " + resulting_page_id + " with label.")
