@@ -498,12 +498,6 @@ def getMinutesConfluencePage(committeeMinutesParentPageID:str) -> str:
 def sanatizeControlCharacters(characters):
     return "".join(ch for ch in characters if unicodedata.category(ch)[0] != "C")
 
-def attach_file(file_path:str, parent_page:int):
-
-    post_url = "rest/api/content/{parent_id}/child/attachment".format(parent_id = parent_page)
-    
-    return confluence_api.request(method="POST", path=post_url, data={"file": file_path, "comment": "Uploaded automatically."})
-
 def uploadCommitteeMinute(committeeMinutesAgendaFilePath:str, committeeMinutesTopicsFilePath:str, commmitteeMinutesParentPageID:str, committee_name:str, committeeSpaceID:str = "COMM"):
     """
     Build a ConfluencePage using parameters and upload that page to the correct
@@ -624,8 +618,8 @@ def uploadCommitteeMinute(committeeMinutesAgendaFilePath:str, committeeMinutesTo
         logger.error("Can't set label to page.")
 
     try:
-        attachment_1 = attach_file(attendees_file_path_pdf, int(resulting_page_id))
-        attachment_2 = attach_file(minutes_file_path_pdf, int(resulting_page_id))
+        attach_file(attendees_file_path_pdf, int(resulting_page_id))
+        attach_file(minutes_file_path_pdf, int(resulting_page_id))
     except UnboundLocalError:
         logger.error("Can't upload attachments to page.")
 
