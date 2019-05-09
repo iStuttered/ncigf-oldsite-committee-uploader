@@ -3,6 +3,7 @@ from atlassian import Confluence
 from os import listdir
 from os.path import isfile, join, isdir, exists
 from datetime import datetime
+from ActionWindow import ActionWindow
 
 confluence_api = credentials.generateSession()
 logger = debugging.generateLogger()
@@ -68,7 +69,30 @@ def getCommitteesFromFileSystem() -> list:
 def begin_merging_process():
     debugging.clear()
 
-    for committee_folder in getCommitteesFromFileSystem():
-        for minutes_file in getMinutesFromFolder(committee_folder):
-            print()
+    action_window = ActionWindow()
 
+    for committee_folder in getCommitteesFromFileSystem():
+        for minutes_file_path in getMinutesFromFolder(committee_folder):
+
+            minutes_file_name = os.path.basename(minutes_file_path)
+
+            with open("\\".join([committee_folder,minutes_file_path]), "r", encoding="utf8") as minutes_file:
+
+                for current_line in minutes_file:
+
+                    cleaned_current_line = current_line.strip()
+
+                    if len(cleaned_current_line) < 1:
+                        continue
+
+                    print("=========MINUTE(" + minutes_file_name + ")=========")
+                    print()
+                    print("LINE:" + current_line)
+                    print()
+
+                    user_choice = action_window.askAction()
+
+                    debugging.clear()
+
+
+begin_merging_process()

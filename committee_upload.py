@@ -3,6 +3,7 @@ from atlassian import Confluence
 from os import listdir
 from os.path import isfile, join, isdir, exists
 from datetime import datetime
+import unicodedata
 
 confluence_api = credentials.generateSession()
 logger = debugging.generateLogger()
@@ -45,7 +46,40 @@ def getMinutesFromFolder(folder_path:str) -> list:
     minutes = (file for file in os.listdir(folder_path) if isMinutes(file) and isFileEXT(file, "txt"))
     
     return minutes
-    
+
+def attach_file(file_path, parent_page_id):
+    content_types = {
+        ".gif": "image/gif",
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".pdf": "application/pdf",
+        ".doc": "application/msword",
+        ".xls": "application/vnd.ms-excel",
+    }
+
+    file_extension = os.path.splitext(file_path)[-1]
+    file_name = os.path.basename(file_path)
+    content_type = content_types.get(file_extension, "application/binary")
+    post_path = "rest/api/content/{page_id}/child/attachment".format(page_id=parent_page_id)
+
+    with open(file_path, "rb") as data_file:
+        response = confluence_api.post(
+            path=post_path,
+            data = {
+            "type": "attachment",
+            "fileName": file_name,
+            "contentType": content_type,
+            "comment": " ",
+            "minorEdit": "true"
+        }, 
+        headers = {
+            "X-Atlassian-Token": "no-check",
+            "Accept": "application/json"
+        }, 
+        files={
+            "file":(file_name, data_file, content_type)
+        })    
 
 def getAgenda(lines_of_file:list) -> dict:
     """
@@ -196,7 +230,13 @@ def getAttendees(lines_in_file:list) -> dict:
         line_lower = line.lower().strip()
         line_stripped = line.strip()
 
-        if "attendees" in line_lower:
+        if "other" in line_lower and ("attending" in line_lower or "attendees" in line_lower) and not section_committeeTopics:
+            section_othersAttending = True
+            section_committeeMembersAttending = False
+            section_committeeMembersNotAttending = False
+            section_committeeTopics = False
+            continue
+        elif "attendees" in line_lower:
             section_committeeMembersAttending = True
             section_committeeMembersNotAttending = False
             section_othersAttending = False
@@ -208,13 +248,7 @@ def getAttendees(lines_in_file:list) -> dict:
             section_othersAttending = False
             section_committeeTopics = False
             continue
-        elif "other" in line_lower and "attending" in line_lower and not section_committeeTopics:
-            section_othersAttending = True
-            section_committeeMembersAttending = False
-            section_committeeMembersNotAttending = False
-            section_committeeTopics = False
-            continue
-        elif "roll call" in line_lower:
+        elif "roll call" in line_lower or len(line_lower) >= 20:
             section_committeeTopics = True
             section_othersAttending = False
             section_committeeMembersAttending = False
@@ -264,9 +298,6 @@ def getAttendees(lines_in_file:list) -> dict:
 
     if topics_failure:
         logger.warning("Topics not retrieved.")
-
-    if attending_failure or topics_failure:
-        return None
 
     return {
         "Members Attending": committeeMembersAttending,
@@ -440,7 +471,7 @@ def padMonthOrDay(dateValue:int) -> str:
     Returns:
         str: A date value prepended with a zero if it is single digit.
     """
-    if dateValue < 10:
+    if int(dateValue) < 10:
         return "0" + str(dateValue)
     else:
         return str(dateValue)
@@ -463,6 +494,15 @@ def getMinutesConfluencePage(committeeMinutesParentPageID:str) -> str:
 
     logger.warning("This committee contains no Minutes page. " + committeeMinutesParentPageID)
     return None
+
+def sanatizeControlCharacters(characters):
+    return "".join(ch for ch in characters if unicodedata.category(ch)[0] != "C")
+
+def attach_file(file_path:str, parent_page:int):
+
+    post_url = "rest/api/content/{parent_id}/child/attachment".format(parent_id = parent_page)
+    
+    return confluence_api.request(method="POST", path=post_url, data={"file": file_path, "comment": "Uploaded automatically."})
 
 def uploadCommitteeMinute(committeeMinutesAgendaFilePath:str, committeeMinutesTopicsFilePath:str, commmitteeMinutesParentPageID:str, committee_name:str, committeeSpaceID:str = "COMM"):
     """
@@ -488,6 +528,12 @@ def uploadCommitteeMinute(committeeMinutesAgendaFilePath:str, committeeMinutesTo
 
     pdf_extension = ".pdf"
     txt_extension = ".txt"
+
+    minute_date = getDateFromFile(committeeMinutesTopicsFilePath)
+    minute_date[0] = padMonthOrDay(minute_date[0])
+    minute_date[1] = padMonthOrDay(minute_date[1])
+    minute_date[2] = padYear(minute_date[2])
+    minute_date = "/".join(minute_date)
 
     committee_file_path = "\\".join([committee_base_url, committee_name])
 
@@ -528,19 +574,35 @@ def uploadCommitteeMinute(committeeMinutesAgendaFilePath:str, committeeMinutesTo
                 "Presenter": ""
             })
 
-    parsed_minute = buildMinute(
+    if agenda and attendees:
+
+        parsed_minute = buildMinute(
             committee_name, 
-            agenda["Minutes Date"], 
+            minute_date, 
             attendees["Members Attending"], 
             attendees["Members NOT Attending"], 
             attendees["Others Attending"], 
             presenters,
             attendees["Topics"])
 
+    else:
 
-    title = committee_name + " - Minutes - " + agenda["Minutes Date"]
+        with open(minutes_file_path_txt, "r", encoding="utf8") as minute_file_contents:
+            parsed_minute = buildMinute(
+                committee_name,
+                minute_date,
+                attendees["Members Attending"] if attendees else [], 
+                attendees["Members NOT Attending"] if attendees else [], 
+                attendees["Others Attending"] if attendees else [], 
+                presenters or [],
+                [{"Topic":"Topics", "Description": "".join(minute_file_contents)}]
+            )
 
-    payload = parsed_minute.replace("\\r\\n", "").replace("&", "and").replace("â€™", "'")
+
+    title = committee_name + " - Minutes - " + minute_date
+
+    payload = parsed_minute.replace("\r", "&#13;").replace("&", "&amp;").replace("â€™", "&apos;").replace("\f", "<br/>").replace("\n", "<br/>")
+    payload = sanatizeControlCharacters(payload)
 
     minutes_child_page = getMinutesConfluencePage(commmitteeMinutesParentPageID)
 
@@ -551,24 +613,21 @@ def uploadCommitteeMinute(committeeMinutesAgendaFilePath:str, committeeMinutesTo
     resulting_page = confluence_api.create_page(committeeSpaceID, title, payload, int(minutes_child_page))
 
     try:
-
         resulting_page_id = resulting_page["id"]
-        confluence_api.set_page_label(resulting_page_id, "minutes")
-        attachment_1 = confluence_api.attach_file(attendees_file_path_pdf, int(resulting_page_id), os.path.basename(attendees_file_path_pdf), committeeSpaceID)
-        attachment_2 = confluence_api.attach_file(minutes_file_path_pdf, int(resulting_page_id))
-
-        if attachment_1["statusCode"] or attachment_2["statusCode"]:
-            print(attachment_1)
-            print(attachment_2)
-            logger.error("Attachments failed to upload.")
-
-        logger.info("Successfully uploaded " + resulting_page_id + " with label.")
-
+        logger.info("Successfully uploaded " + resulting_page_id + ".")
     except KeyError:
         logger.warning("Confluence Page already exists.")
 
-    debugging.pause()
+    try:
+        confluence_api.set_page_label(resulting_page_id, "minutes")
+    except UnboundLocalError:
+        logger.error("Can't set label to page.")
 
+    try:
+        attachment_1 = attach_file(attendees_file_path_pdf, int(resulting_page_id))
+        attachment_2 = attach_file(minutes_file_path_pdf, int(resulting_page_id))
+    except UnboundLocalError:
+        logger.error("Can't upload attachments to page.")
 
 def getPageIDFromCommitteeName(committee_name:str, committee_parent_page_id:int = 1278261):
     committees = confluence_api.request(
@@ -718,7 +777,4 @@ def mergeMatches():
                     logger.error("Could not get committee_id from name " + committee_name)
                 else:
                     uploadCommitteeMinute(only_match, file, committee_id, committee_name)
-
-            debugging.pause()
-
 mergeMatches()

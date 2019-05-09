@@ -10,7 +10,7 @@ def clear():
     """
     A console.clearScreen() for easier console viewing.
     """
-    os.system("clear")
+    os.system("cls")
 
 def generateLogger() -> logging.Logger:
 
