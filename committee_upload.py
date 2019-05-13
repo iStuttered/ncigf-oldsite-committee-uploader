@@ -1,10 +1,8 @@
-import requests, urllib3, os, dateutil, time, string, logging, time, json, re, credentials, debugging
+import requests, urllib3, os, dateutil, time, string, logging, time, json, re, credentials, debugging, unicodedata
 from atlassian import Confluence
 from os import listdir
 from os.path import isfile, join, isdir, exists
 from datetime import datetime
-import unicodedata
-
 confluence_api = credentials.generateSession()
 logger = debugging.generateLogger()
 
@@ -47,6 +45,19 @@ def getMinutesFromFolder(folder_path:str) -> list:
     
     return minutes
 
+def clean_minutes_from_committees(committee_names):
+    for committee_name in committee_names:
+        committee_id = getPageIDFromCommitteeName(committee_name)
+        minutes_page_id = getMinutesConfluencePage(committee_id)
+        pages = confluence_api.get_child_pages(minutes_page_id)
+        while len(pages) > 0:
+            page_ids = [page["id"] for page in pages]
+            for index, page in enumerate(page_ids, 0):
+                confluence_api.remove_page(page)
+                logger.info("Cleaned " + str(index) + "/" + str(len(page_ids)-1))
+            pages = confluence_api.get_child_pages(minutes_page_id)
+        logger.info("Done cleaning " + committee_name)
+
 def attach_file(file_path, parent_page_id):
     content_types = {
         ".gif": "image/gif",
@@ -63,8 +74,11 @@ def attach_file(file_path, parent_page_id):
     content_type = content_types.get(file_extension, "application/binary")
     post_path = "rest/api/content/{page_id}/child/attachment".format(page_id=parent_page_id)
 
+    if not os.path.exists(file_path):
+        return
+
     with open(file_path, "rb") as data_file:
-        response = confluence_api.post(
+        confluence_api.post(
             path=post_path,
             data = {
             "type": "attachment",
@@ -189,6 +203,23 @@ def getAgenda(lines_of_file:list) -> dict:
         "Minutes Date": minutes_date
     }
 
+def isName(string):
+    length = len(string.split(" "))
+    regex_remove_suffix = r"(\(.+\))|(\,.+)"
+    if length == 2:
+        return True
+    else:
+        if length < 2:
+            return False
+        else:
+            string_stripped = re.sub(regex_remove_suffix, "", string).strip()
+            length = len(string_stripped.split(" "))
+            if length == 2:
+                return True
+            else:
+                return False
+        
+
 def getAttendees(lines_in_file:list) -> dict:
     """
     Read the lines of a file to retrieve the attendees information in
@@ -225,30 +256,33 @@ def getAttendees(lines_in_file:list) -> dict:
         "Description":""
     }
 
-    for line in lines_in_file:
+    for index, line in enumerate(lines_in_file, 0):
 
-        line_lower = line.lower().strip()
         line_stripped = line.strip()
+        line_lower = line_stripped.lower()
 
-        if "other" in line_lower and ("attending" in line_lower or "attendees" in line_lower) and not section_committeeTopics:
+        if len(line_lower) < 1:
+            continue
+
+        if "other" in line_lower and "attend" in line_lower and not section_committeeTopics:
             section_othersAttending = True
             section_committeeMembersAttending = False
             section_committeeMembersNotAttending = False
             section_committeeTopics = False
             continue
-        elif "attendees" in line_lower:
-            section_committeeMembersAttending = True
-            section_committeeMembersNotAttending = False
-            section_othersAttending = False
-            section_committeeTopics = False
-            continue
-        elif ("committee members not attending" in line_lower or "absent" in line_lower) and not section_committeeTopics:
+        elif all(["not" in line_lower, "member" in line_lower]) or all(["not" in line_lower, "attend" in line_lower]) or "absent" in line_lower and not section_committeeTopics:
             section_committeeMembersNotAttending = True
             section_committeeMembersAttending = False
             section_othersAttending = False
             section_committeeTopics = False
             continue
-        elif "roll call" in line_lower or len(line_lower) >= 20:
+        elif "attendees" in line_lower or "member attendees" in line_lower or all(["attending" in line_lower, "members" in line_lower]):
+            section_committeeMembersAttending = True
+            section_committeeMembersNotAttending = False
+            section_othersAttending = False
+            section_committeeTopics = False
+            continue
+        elif not isName(line_lower) and "attend" not in line_lower and "conference" not in line_lower and index > 10:
             section_committeeTopics = True
             section_othersAttending = False
             section_committeeMembersAttending = False
@@ -430,8 +464,10 @@ def buildCommitteeStatus(committeeName:str, minutes_date:str, committeeStatus:st
     table += committeeStatus + "</p></ac:rich-text-body></ac:structured-macro></div></td></tr></tbody></table>"
         
     closing = "</ac:rich-text-body></ac:structured-macro></ac:rich-text-body></ac:structured-macro>"
-    
-    return beginning + table + closing
+
+    attachments = "<ac:structured-macro ac:name=\"content-block\" ac:schema-version=\"1\" ac:macro-id=\"6ace2570-bb93-4cf2-ae05-78089be52874\"><ac:parameter ac:name=\"id\">270750570</ac:parameter><ac:rich-text-body><ac:structured-macro ac:name=\"info\" ac:schema-version=\"1\" ac:macro-id=\"22d834ad-6fbb-45a2-9463-a442198deb8f\"><ac:rich-text-body><p>Content on this page has been automatically generated. For the most accuracy, refer to the attachments below.</p></ac:rich-text-body></ac:structured-macro><p><ac:structured-macro ac:name=\"attachments\" ac:schema-version=\"1\" ac:macro-id=\"a4ce25c3-a4d4-46ae-9b67-db7946e86b05\" /></p></ac:rich-text-body></ac:structured-macro>"
+
+    return beginning + table + closing + attachments
 
 
 
@@ -568,7 +604,7 @@ def uploadCommitteeMinute(committeeMinutesAgendaFilePath:str, committeeMinutesTo
                 "Presenter": ""
             })
 
-    if agenda and attendees:
+    if agenda and attendees and len(attendees["Topics"]) > 0:
 
         parsed_minute = buildMinute(
             committee_name, 
@@ -771,4 +807,8 @@ def mergeMatches():
                     logger.error("Could not get committee_id from name " + committee_name)
                 else:
                     uploadCommitteeMinute(only_match, file, committee_id, committee_name)
+        logger.info("Completed importing " + committee_name + ".")
+        debugging.pause()
+
+clean_minutes_from_committees(["Accounting Issues Committee", "Board Audit Committee", "Communication Committee"])
 mergeMatches()
