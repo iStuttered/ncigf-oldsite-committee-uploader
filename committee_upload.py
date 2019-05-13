@@ -465,7 +465,7 @@ def buildCommitteeStatus(committeeName:str, minutes_date:str, committeeStatus:st
         
     closing = "</ac:rich-text-body></ac:structured-macro></ac:rich-text-body></ac:structured-macro>"
 
-    attachments = "<ac:structured-macro ac:name=\"content-block\" ac:schema-version=\"1\" ac:macro-id=\"6ace2570-bb93-4cf2-ae05-78089be52874\"><ac:parameter ac:name=\"id\">270750570</ac:parameter><ac:rich-text-body><ac:structured-macro ac:name=\"info\" ac:schema-version=\"1\" ac:macro-id=\"22d834ad-6fbb-45a2-9463-a442198deb8f\"><ac:rich-text-body><p>Content on this page has been automatically generated. For the most accuracy, refer to the attachments below.</p></ac:rich-text-body></ac:structured-macro><p><ac:structured-macro ac:name=\"attachments\" ac:schema-version=\"1\" ac:macro-id=\"a4ce25c3-a4d4-46ae-9b67-db7946e86b05\" /></p></ac:rich-text-body></ac:structured-macro>"
+    attachments = "<ac:structured-macro ac:name=\"content-block\" ac:schema-version=\"1\" ac:macro-id=\"6ace2570-bb93-4cf2-ae05-78089be52874\"><ac:parameter ac:name=\"id\">270750570</ac:parameter><ac:rich-text-body><ac:structured-macro ac:name=\"info\" ac:schema-version=\"1\" ac:macro-id=\"22d834ad-6fbb-45a2-9463-a442198deb8f\"><ac:rich-text-body><p>Content on this page has been automatically generated from the source document(s) below.</p></ac:rich-text-body></ac:structured-macro><p><ac:structured-macro ac:name=\"attachments\" ac:schema-version=\"1\" ac:macro-id=\"a4ce25c3-a4d4-46ae-9b67-db7946e86b05\" /></p></ac:rich-text-body></ac:structured-macro>"
 
     return beginning + table + closing + attachments
 
