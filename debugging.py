@@ -18,7 +18,9 @@ def generateLogger() -> logging.Logger:
     log = logging.getLogger('atlassian')
     log.setLevel(logging.CRITICAL)
 
-    logger = logging.getLogger("ncigf-oldsite-committee-uploader")
+    project_name = os.path.dirname(os.path.realpath(__file__)).split("\\")[-1]
+
+    logger = logging.getLogger(project_name)
     logger.setLevel(logging.INFO)
 
     stream = logging.StreamHandler()
