@@ -52,9 +52,9 @@ def clean_minutes_from_committees(committee_names):
         pages = confluence_api.get_child_pages(minutes_page_id)
         while len(pages) > 0:
             page_ids = [page["id"] for page in pages]
-            for index, page in enumerate(page_ids, 0):
+            for index, page in enumerate(page_ids, 1):
                 confluence_api.remove_page(page)
-                logger.info("Cleaned " + str(index) + "/" + str(len(page_ids)-1))
+                logger.info("Cleaned " + str(index) + "/" + str(len(page_ids)))
             pages = confluence_api.get_child_pages(minutes_page_id)
         logger.info("Done cleaning " + committee_name)
 
@@ -194,13 +194,10 @@ def getAgenda(lines_of_file:list) -> dict:
     if agenda_failure:
         logger.warning("No agenda was retrieved for this file.")
 
-    if date_failure or presenters_failure or agenda_failure:
-        return None
-
     return {
-        "Agenda": agenda,
-        "Presenters": presenters,
-        "Minutes Date": minutes_date
+        "Agenda": agenda if len(agenda) > 0 else [],
+        "Presenters": presenters if len(presenters) > 0 else [],
+        "Minutes Date": minutes_date if not(minutes_date is None) else "None"
     }
 
 def isName(string):
@@ -560,6 +557,10 @@ def uploadCommitteeMinute(committeeMinutesAgendaFilePath:str, committeeMinutesTo
     txt_extension = ".txt"
 
     minute_date = getDateFromFile(committeeMinutesTopicsFilePath)
+
+    if len(minute_date) < 1:
+        minute_date = [0, 0, 0]
+
     minute_date[0] = padMonthOrDay(minute_date[0])
     minute_date[1] = padMonthOrDay(minute_date[1])
     minute_date[2] = padYear(minute_date[2])
@@ -583,14 +584,14 @@ def uploadCommitteeMinute(committeeMinutesAgendaFilePath:str, committeeMinutesTo
 
     if not committee_agenda_empty:
         with(open(attendees_file_path_txt, "r", encoding="utf-8")) as agenda_file:
-            agenda_lines = (line for line in agenda_file)
+            agenda_lines = list(line for line in agenda_file)
             agenda = getAgenda(agenda_lines)
     else:
         logger.warning("Attendees object not present.")
 
     if not committee_minutes_empty:
         with(open(minutes_file_path_txt, "r", encoding="utf-8")) as minutes_file:
-            attendees_lines = (line for line in minutes_file)
+            attendees_lines = list(line for line in minutes_file)
             attendees = getAttendees(attendees_lines)
     else:
         logger.warning("Agenda object not present.")
@@ -727,10 +728,10 @@ def getDateFromFile(file_name:str) -> list:
         return re.split(regex_date_seperators, first_occurrence)
 
 def padYear(year:str):
-    if len(year) == 2 and year[0] == "0":
-        return "20" + year
+    if len(str(year)) == 2 and year[0] == "0":
+        return "20" + str(year)
     else:
-        return year
+        return str(year)
 
 
 def getFilesWithSimilarDate(file_name:str, agendas_list:list) -> list:
@@ -782,6 +783,9 @@ def mergeMatches():
 
         committee_name = committee_pieces[-1]
 
+        if committee_name in ["Guaranty Funds Information Systems", "IT Advisory & Governance"]:
+            continue
+
         minutes = getMinutesFromFolder(committee)
         agendas = getAgendasFromFolder(committee)
 
@@ -808,7 +812,28 @@ def mergeMatches():
                 else:
                     uploadCommitteeMinute(only_match, file, committee_id, committee_name)
         logger.info("Completed importing " + committee_name + ".")
-        debugging.pause()
+        #debugging.pause()
 
-clean_minutes_from_committees(["Accounting Issues Committee", "Board Audit Committee", "Communication Committee"])
+cleaning_committee_names = [
+        "Accounting Issues Committee",#
+        "Best Practices Committee",
+        "Board Audit Committee",#
+        "Corporate Governance Committee",#
+        "Finance Committee",
+        "Bylaws Committee",#
+        "Communication Committee",#
+        "Coordinating Committee Chairs Committee",#
+        "Core Services Committee",
+        "Education Committee",#
+        "Legal Committee",#
+        "Member Committee Advisory Committee",#
+        "NCIGF Services Committee",#
+        "Nominating Committee",
+        "Operations Committee",#
+        "Public Policy Committee",#
+        "Site Selection Committee",#
+        "Special Funding Committee"
+]
+
+clean_minutes_from_committees(cleaning_committee_names)
 mergeMatches()
