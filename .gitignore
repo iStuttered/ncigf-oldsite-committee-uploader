@@ -2,4 +2,4 @@
 credentials.py
 .vscode
 *.pyc
-minutes_pdfs
+minutes_pdfs*
